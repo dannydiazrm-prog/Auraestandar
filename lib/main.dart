@@ -789,7 +789,6 @@ Widget _cardPedidos() {
                           ),
                         ),
                       ),
-                        ),
                       );
                     },
                     child: Container(
