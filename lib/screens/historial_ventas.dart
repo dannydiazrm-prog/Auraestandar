@@ -208,14 +208,7 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
                   final fecha = DateTime.parse(data['fecha']);
                   return fecha.isBefore(_fechaHasta!.add(const Duration(days: 1)));
                 }).toList();
-              }
-              if (_fechaHasta != null) {
-                docs = docs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final fecha = DateTime.parse(data['fecha']);
-                  return fecha.isBefore(_fechaHasta!.add(const Duration(days: 1)));
-                }).toList();
-              }
+              }        
 
               if (docs.isEmpty) {
                 return Container(
