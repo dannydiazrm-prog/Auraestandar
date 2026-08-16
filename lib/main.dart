@@ -21,6 +21,7 @@ import 'screens/ajustes_screen.dart';
 import 'screens/pedidos_screen.dart';
 import 'screens/pedidos_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,14 +42,40 @@ void main() async {
   runApp(const MyApp());
 }
 
-
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool? _activada;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarEstado();
+  }
+
+  Future<void> _cargarEstado() async {
+    final prefs = await SharedPreferences.getInstance();
+    final activada = prefs.getBool('app_activada') ?? false;
+    if (mounted) setState(() => _activada = activada);
+  }
+
+  void _marcarActivada() {
+    setState(() => _activada = true);
+  }
+
+  void _marcarDesactivada() {
+    setState(() => _activada = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Facturador',
+      title: 'Aura Estándar',
       debugShowCheckedModeBanner: false,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -64,26 +91,18 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: StreamBuilder<User?>(
-  stream: FirebaseAuth.instance.authStateChanges(),
-  builder: (context, snapshot) {
-    if (snapshot.connectionState == ConnectionState.waiting) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (snapshot.hasData) {
-      return const MainLayout();
-    }
-    return const LoginScreen();
-  },
-),
+      home: _activada == null
+          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          : _activada == true
+              ? MainLayout(onCerrarSesion: _marcarDesactivada)
+              : LoginScreen(onActivado: _marcarActivada),
     );
   }
 }
 
 class MainLayout extends StatefulWidget {
-  const MainLayout({super.key});
+  final VoidCallback onCerrarSesion;
+  const MainLayout({super.key, required this.onCerrarSesion});
 
   @override
   State<MainLayout> createState() => _MainLayoutState();
@@ -165,7 +184,9 @@ class _MainLayoutState extends State<MainLayout> {
                     ),
                   );
                   if (confirmar == true) {
-                    await FirebaseAuth.instance.signOut();
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool('app_activada', false);
+                    widget.onCerrarSesion();
                   }
                 },
               ),

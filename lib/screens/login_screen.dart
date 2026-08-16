@@ -1,9 +1,11 @@
 import '../widgets/responsive.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final VoidCallback onActivado;
+  const LoginScreen({super.key, required this.onActivado});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -11,36 +13,67 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _correoCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
+  final _codigoCtrl = TextEditingController();
   bool _cargando = false;
-  bool _verPass = false;
   String? _error;
 
   @override
   void dispose() {
-    _correoCtrl.dispose();
-    _passCtrl.dispose();
+    _codigoCtrl.dispose();
     super.dispose();
   }
 
-  void _login() async {
+  void _validarCodigo() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _cargando = true; _error = null; });
+    setState(() {
+      _cargando = true;
+      _error = null;
+    });
+
+    final codigo = _codigoCtrl.text.trim();
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _correoCtrl.text.trim(),
-        password: _passCtrl.text.trim(),
-      );
-    } on FirebaseAuthException catch (e) {
-      setState(() {
-        _error = (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential')
-            ? 'Correo o contraseña incorrectos'
-            : 'Error al iniciar sesión. Intenta de nuevo.';
-      });
+      final docRef = FirebaseFirestore.instance
+          .collection('codigos_activacion')
+          .doc(codigo);
+      final doc = await docRef.get();
+
+      if (!doc.exists) {
+        setState(() => _error = 'Código inválido');
+        return;
+      }
+
+      final data = doc.data()!;
+      final bool usado = data['usado'] ?? true;
+      final Timestamp? expiraTimestamp = data['creado_en'];
+
+      if (usado) {
+        setState(() => _error = 'Este código ya fue utilizado');
+        return;
+      }
+
+      if (expiraTimestamp == null) {
+        setState(() => _error = 'Código inválido');
+        return;
+      }
+
+      final DateTime expira = expiraTimestamp.toDate();
+      if (DateTime.now().isAfter(expira)) {
+        setState(() => _error = 'Este código ya expiró');
+        return;
+      }
+
+      await docRef.update({'usado': true});
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('app_activada', true);
+
+      if (!mounted) return;
+      widget.onActivado();
+    } catch (e) {
+      setState(() => _error = 'Error al validar el código. Intenta de nuevo.');
     } finally {
-      setState(() => _cargando = false);
+      if (mounted) setState(() => _cargando = false);
     }
   }
 
@@ -50,9 +83,9 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: const Color(0xFF1A2744),
       body: Center(
         child: SingleChildScrollView(
-          padding: Responsive.pagePadding(context), // <--- SOLUCIONADO: Solo uno y sin const
+          padding: Responsive.pagePadding(context),
           child: Container(
-            padding: const EdgeInsets.all(24), // Añadimos un padding interno al contenedor blanco
+            padding: const EdgeInsets.all(24),
             constraints: const BoxConstraints(maxWidth: 400),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -70,7 +103,6 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Logo
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Image.asset(
@@ -82,7 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'BN24py',
+                    'Aura Estándar',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -90,12 +122,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const Text(
-                    'Gestión e Inventario',
+                    'Ingresa tu código de activación',
                     style: TextStyle(color: Colors.grey, fontSize: 13),
                   ),
                   const SizedBox(height: 32),
 
-                  // Error
                   if (_error != null) ...[
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -120,13 +151,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 16),
                   ],
 
-                  // Correo
                   TextFormField(
-                    controller: _correoCtrl,
-                    keyboardType: TextInputType.emailAddress,
+                    controller: _codigoCtrl,
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 24, letterSpacing: 8, fontWeight: FontWeight.bold),
                     decoration: InputDecoration(
-                      labelText: 'Correo electrónico',
-                      prefixIcon: const Icon(Icons.email, color: Color(0xFF1E88E5)),
+                      counterText: '',
+                      labelText: 'Código de 4 dígitos',
+                      prefixIcon: const Icon(Icons.vpn_key, color: Color(0xFF1E88E5)),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -136,43 +170,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Ingresa tu correo';
+                      if (v == null || v.trim().isEmpty) return 'Ingresa el código';
+                      if (v.trim().length != 4) return 'El código debe tener 4 dígitos';
                       return null;
                     },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Contraseña
-                  TextFormField(
-                    controller: _passCtrl,
-                    obscureText: !_verPass,
-                    decoration: InputDecoration(
-                      labelText: 'Contraseña',
-                      prefixIcon: const Icon(Icons.lock, color: Color(0xFF1E88E5)),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _verPass ? Icons.visibility_off : Icons.visibility,
-                          color: Colors.grey,
-                        ),
-                        onPressed: () => setState(() => _verPass = !_verPass),
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFF1E88E5), width: 2),
-                      ),
-                    ),
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Ingresa tu contraseña';
-                      return null;
-                    },
-                    onFieldSubmitted: (_) => _login(),
+                    onFieldSubmitted: (_) => _validarCodigo(),
                   ),
                   const SizedBox(height: 24),
 
-                  // Botón login
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -183,11 +188,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      onPressed: _cargando ? null : _login,
+                      onPressed: _cargando ? null : _validarCodigo,
                       child: _cargando
                           ? const CircularProgressIndicator(color: Colors.white)
                           : const Text(
-                              'INICIAR SESIÓN',
+                              'ACTIVAR',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
