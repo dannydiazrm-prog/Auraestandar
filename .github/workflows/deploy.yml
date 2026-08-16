@@ -13,7 +13,7 @@ jobs:
         with:
           flutter-version: '3.38.5'
       - run: flutter pub get
-      - run: flutter build web --release --base-href /facturador/
+      - run: flutter build web --release --base-href /AuraEstandar/
       - uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

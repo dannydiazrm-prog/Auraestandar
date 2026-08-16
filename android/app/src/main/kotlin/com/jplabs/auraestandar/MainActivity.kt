@@ -1,4 +1,4 @@
-package com.bn24.facturador.facturador
+package com.jplabs.auraestandar
 
 import android.os.Build
 import android.os.Bundle
