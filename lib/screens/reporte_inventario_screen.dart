@@ -5,9 +5,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../models/producto.dart';
-import '../services/firestore_service.dart';
+import '../services/database_service.dart';
 import 'producto_form.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ReporteInventarioScreen extends StatefulWidget {
   const ReporteInventarioScreen({super.key});
@@ -18,7 +17,7 @@ class ReporteInventarioScreen extends StatefulWidget {
 }
 
 class _ReporteInventarioScreenState extends State<ReporteInventarioScreen> {
-  final FirestoreService _service = FirestoreService();
+  final DatabaseService _service = DatabaseService.instance;
   final _buscarCtrl = TextEditingController();
   String _filtro = '';
   String _filtroStock = 'Todos';
@@ -30,12 +29,9 @@ class _ReporteInventarioScreenState extends State<ReporteInventarioScreen> {
   }
 
   Future<bool> _productoTieneVentas(String productoId) async {
-    final snap = await FirebaseFirestore.instance
-        .collection('ventas')
-        .where('estado', isEqualTo: 'pagado')
-        .get();
-    for (final doc in snap.docs) {
-      final items = doc.data()['items'] as List<dynamic>;
+    final ventas = await DatabaseService.instance.getVentas().first;
+    for (final v in ventas.where((v) => v['estado'] == 'pagado')) {
+      final items = v['items'] as List<dynamic>;
       if (items.any((i) => i['productoId'] == productoId)) return true;
     }
     return false;
@@ -43,20 +39,17 @@ class _ReporteInventarioScreenState extends State<ReporteInventarioScreen> {
 
   Future<bool> _productoSinMovimiento(String productoId) async {
     final hace7dias = DateTime.now().subtract(const Duration(days: 7));
-    final snap = await FirebaseFirestore.instance
-        .collection('ventas')
-        .where('estado', isEqualTo: 'pagado')
-        .get();
-    for (final doc in snap.docs) {
-      final fecha = DateTime.parse(doc.data()['fecha']);
+    final ventas = await DatabaseService.instance.getVentas().first;
+    for (final v in ventas.where((v) => v['estado'] == 'pagado')) {
+      final fecha = DateTime.parse(v['fecha']);
       if (fecha.isAfter(hace7dias)) {
-        final items = doc.data()['items'] as List<dynamic>;
+        final items = v['items'] as List<dynamic>;
         if (items.any((i) => i['productoId'] == productoId)) return false;
       }
     }
     return true;
   }
-
+  
   void _mostrarOpciones(Producto producto) {
     showModalBottomSheet(
       context: context,
@@ -195,10 +188,7 @@ class _ReporteInventarioScreenState extends State<ReporteInventarioScreen> {
                         style:
                             ElevatedButton.styleFrom(backgroundColor: Colors.red),
                         onPressed: () async {
-                          await FirebaseFirestore.instance
-                              .collection('productos')
-                              .doc(producto.id)
-                              .delete();
+                          await _service.eliminarProducto(producto.id);
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(

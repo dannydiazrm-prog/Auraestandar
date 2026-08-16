@@ -6,6 +6,7 @@ import '../models/producto.dart';
 import '../models/cliente.dart';
 import '../models/venta.dart';
 import '../services/firestore_service.dart';
+import '../services/database_service.dart';
 import 'cliente_form.dart';
 import '../services/ticket_service.dart';
 import '../services/ajustes_service.dart';
@@ -19,6 +20,7 @@ class NuevaVentaScreen extends StatefulWidget {
 
 class _NuevaVentaScreenState extends State<NuevaVentaScreen> {
   final FirestoreService _service = FirestoreService();
+  final DatabaseService _db = DatabaseService.instance;
   final _rucCiController = TextEditingController();
   final _buscarProductoController = TextEditingController();
   final _montoPagadoController = TextEditingController();
@@ -42,7 +44,7 @@ class _NuevaVentaScreenState extends State<NuevaVentaScreen> {
     setState(() => _buscandoCliente = true);
     final query = _rucCiController.text.trim();
     final esNumero = RegExp(r'^[0-9.\-]+$').hasMatch(query);
-    final cliente = await _service.buscarClientePorRucCi(query);
+    final cliente = await _db.buscarClientePorRucCi(query);
     setState(() => _buscandoCliente = false);
     if (cliente != null) {
       setState(() => _clienteSeleccionado = cliente);
@@ -78,7 +80,7 @@ class _NuevaVentaScreenState extends State<NuevaVentaScreen> {
       return;
     }
     setState(() => _buscandoProducto = true);
-    final productos = await _service.buscarProducto(query);
+    final productos = await _db.buscarProducto(query);
     setState(() {
       _productosFiltrados = productos;
       _buscandoProducto = false;
@@ -229,7 +231,16 @@ void _mostrarMontoLibre(Producto producto) {
       vuelto: _vuelto > 0 ? _vuelto : 0,
     );
 
-    await _service.guardarVenta(venta);
+    final gastosAutomaticos = await _db.guardarVenta(venta);
+    for (final gasto in gastosAutomaticos) {
+      await _service.agregarGasto({
+        'fecha': DateTime.now().toIso8601String(),
+        'categoria': 'Costo de Venta',
+        'descripcion': '${gasto['nombre']} x${gasto['cantidad']}',
+        'monto': gasto['costoTotal'],
+        'automatico': true,
+      });
+    }
     FocusScope.of(context).unfocus();
     await Future.delayed(const Duration(milliseconds: 300));
 

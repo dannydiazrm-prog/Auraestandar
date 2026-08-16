@@ -1,7 +1,7 @@
 import '../widgets/responsive.dart';
 import "../widgets/page_header.dart";
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/database_service.dart';
 
 class CajaScreen extends StatelessWidget {
   const CajaScreen({super.key});
@@ -12,21 +12,17 @@ class CajaScreen extends StatelessWidget {
     final inicioDia = DateTime(ahora.year, ahora.month, ahora.day);
     final finDia = DateTime(ahora.year, ahora.month, ahora.day, 23, 59, 59);
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('ventas')
-          .orderBy('fecha', descending: true)
-          .snapshots(),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: DatabaseService.instance.getVentas(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final docs = snapshot.data?.docs ?? [];
+        final docs = snapshot.data ?? [];
 
         // Filtrar ventas del día
-        final ventasHoy = docs.where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
+        final ventasHoy = docs.where((data) {
           final fecha = DateTime.parse(data['fecha']);
           return fecha.isAfter(inicioDia) && fecha.isBefore(finDia);
         }).toList();
@@ -37,8 +33,7 @@ class CajaScreen extends StatelessWidget {
         double totalAnulado = 0;
         int cantidadAnuladas = 0;
 
-        for (final doc in ventasHoy) {
-          final data = doc.data() as Map<String, dynamic>;
+        for (final data in ventasHoy) {
           final anulada = data['estado'] == 'anulada';
           final total = (data['total'] ?? 0).toDouble();
 
@@ -134,7 +129,7 @@ class CajaScreen extends StatelessWidget {
                         separatorBuilder: (_, __) =>
                             const Divider(height: 1, indent: 16, endIndent: 16),
                         itemBuilder: (context, index) {
-                          final data = ventasHoy[index].data() as Map<String, dynamic>;
+                          final data = ventasHoy[index];
                           final fecha = DateTime.parse(data['fecha']);
                           final anulada = data['estado'] == 'anulada';
 

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import '../models/cliente.dart';
 import '../services/firestore_service.dart';
+import '../services/database_service.dart';
 import 'cliente_form.dart';
 
 class ClientesScreen extends StatefulWidget {
@@ -16,6 +17,7 @@ class ClientesScreen extends StatefulWidget {
 
 class _ClientesScreenState extends State<ClientesScreen> {
   final FirestoreService _service = FirestoreService();
+  final DatabaseService _db = DatabaseService.instance;
   final _buscarCtrl = TextEditingController();
   String _filtro = '';
 
@@ -52,7 +54,7 @@ class _ClientesScreenState extends State<ClientesScreen> {
   }
 
   void _confirmarEliminar(Cliente cliente) async {
-    final tieneVentas = await _service.clienteTieneVentas(cliente.id);
+    final tieneVentas = await _db.clienteTieneVentas(cliente.id);
 
     if (tieneVentas) {
       showDialog(
@@ -99,7 +101,7 @@ class _ClientesScreenState extends State<ClientesScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              await _service.eliminarCliente(cliente.id);
+              await _db.eliminarCliente(cliente.id);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -295,7 +297,7 @@ class _ClientesScreenState extends State<ClientesScreen> {
           ),
           const SizedBox(height: 16),
           StreamBuilder<List<Cliente>>(
-            stream: _service.getClientes(),
+            stream: _db.getClientes(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());

@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io';
 import '../widgets/responsive.dart';
@@ -7,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/producto.dart';
 import '../services/firestore_service.dart';
+import '../services/database_service.dart';
 import 'producto_form.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -19,6 +19,7 @@ class ProductosScreen extends StatefulWidget {
 
 class _ProductosScreenState extends State<ProductosScreen> {
   final FirestoreService _service = FirestoreService();
+  final DatabaseService _db = DatabaseService.instance;
   final _buscarCtrl = TextEditingController();
   String _filtro = '';
   String _tipoFiltro = 'Todos';
@@ -221,7 +222,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
                 final costo = costoTotal;
                 if (cant <= 0) return;
 
-                await FirebaseFirestore.instance.collection('productos').doc(p.id).update({'stock': p.stock + cant});
+                await _db.actualizarStock(p.id, p.stock + cant);
 
                 if (costo > 0) {
                   await FirebaseFirestore.instance.collection('gastos').add({
@@ -250,7 +251,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
                     ),
                   );
                   if (actualizar == true) {
-                    await FirebaseFirestore.instance.collection('productos').doc(p.id).update({'precioCompra': precioUnit});
+                    await _db.actualizarPrecioCompra(p.id, precioUnit);
                   }
                 }
 
@@ -265,35 +266,6 @@ class _ProductosScreenState extends State<ProductosScreen> {
         ),
       ),
     );
-  }
-
-  Future<bool> _pedirContrasena() async {
-    final ctrl = TextEditingController();
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar acción'),
-        content: TextField(
-          controller: ctrl,
-          obscureText: true,
-          decoration: const InputDecoration(labelText: 'Contraseña del administrador', border: OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirmar')),
-        ],
-      ),
-    );
-    if (result != true) return false;
-    try {
-      final user = FirebaseAuth.instance.currentUser!;
-      final cred = EmailAuthProvider.credential(email: user.email!, password: ctrl.text);
-      await user.reauthenticateWithCredential(cred);
-      return true;
-    } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contraseña incorrecta'), backgroundColor: Colors.red));
-      return false;
-    }
   }
 
   void _dialogBajaStock(Producto p) {
@@ -323,11 +295,10 @@ class _ProductosScreenState extends State<ProductosScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             onPressed: () async {
-              if (!await _pedirContrasena()) return;
               final cant = int.tryParse(cantCtrl.text) ?? 0;
               if (cant <= 0 || cant > p.stock) return;
               final perdida = cant * p.precioCompra;
-              await FirebaseFirestore.instance.collection('productos').doc(p.id).update({'stock': p.stock - cant});
+              await _db.actualizarStock(p.id, p.stock - cant);
               await FirebaseFirestore.instance.collection('gastos').add({
                 'descripcion': 'Baja de stock: ${p.nombre} ($cant unidades) - ${motivoCtrl.text}',
                 'monto': perdida,
@@ -372,7 +343,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              await FirebaseFirestore.instance.collection('productos').doc(p.id).delete();
+              await _db.eliminarProducto(p.id);
               Navigator.pop(context);
             },
             child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
@@ -444,7 +415,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
           ),
           const SizedBox(height: 16),
           StreamBuilder<List<Producto>>(
-            stream: _service.getProductos(),
+            stream: _db.getProductos(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());

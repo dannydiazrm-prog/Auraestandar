@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/cliente.dart';
 import '../services/firestore_service.dart';
+import '../services/database_service.dart';
 
 class ClienteForm extends StatefulWidget {
   final String rucCiInicial;
@@ -20,7 +21,7 @@ class ClienteForm extends StatefulWidget {
 
 class _ClienteFormState extends State<ClienteForm> {
   final _formKey = GlobalKey<FormState>();
-  final FirestoreService _service = FirestoreService();
+  final DatabaseService _db = DatabaseService.instance;
 
   final _nombreCtrl = TextEditingController();
   final _rucCiCtrl = TextEditingController();
@@ -70,7 +71,7 @@ class _ClienteFormState extends State<ClienteForm> {
       tipoContribuyente: _tipoContribuyente,
     );
 
-    final id = await _service.agregarCliente(cliente);
+    final id = await _db.agregarCliente(cliente);
     setState(() => _guardando = false);
 
     Navigator.pop(context, Cliente(

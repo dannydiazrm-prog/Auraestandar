@@ -1,8 +1,7 @@
 import '../widgets/responsive.dart';
-import "package:firebase_auth/firebase_auth.dart";
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firestore_service.dart';
+import '../services/database_service.dart';
 import '../services/ticket_service.dart';
 import '../services/ajustes_service.dart';
 import '../widgets/page_header.dart';
@@ -16,6 +15,7 @@ class HistorialVentasScreen extends StatefulWidget {
 
 class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
   final FirestoreService _service = FirestoreService();
+  final DatabaseService _db = DatabaseService.instance;
   final _buscarCtrl = TextEditingController();
   DateTime? _fechaDesde;
   DateTime? _fechaHasta;
@@ -51,7 +51,12 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _DetalleVenta(venta: venta, ventaId: ventaId, service: _service),
+      builder: (context) => _DetalleVenta(
+        venta: venta,
+        ventaId: ventaId,
+        db: _db,
+        gastosService: _service,
+      ),
     );
   }
 
@@ -153,19 +158,15 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Lista de ventas
-          StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('ventas')
-                .orderBy('fecha', descending: true)
-                .limit(10)
-                .snapshots(),
+         // Lista de ventas
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: _db.getVentas(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
                 return Container(
                   padding: const EdgeInsets.all(40),
                   decoration: BoxDecoration(
@@ -184,12 +185,11 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
                 );
               }
 
-              var docs = snapshot.data!.docs;
+              var docs = snapshot.data!;
 
               // Filtrar por cliente
               if (_filtroCliente.isNotEmpty) {
-                docs = docs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
+                docs = docs.where((data) {
                   final nombre = (data['clienteNombre'] ?? '').toLowerCase();
                   final ruc = (data['clienteRucCi'] ?? '').toLowerCase();
                   return nombre.contains(_filtroCliente) || ruc.contains(_filtroCliente);
@@ -198,10 +198,15 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
 
               // Filtrar por fecha
               if (_fechaDesde != null) {
-                docs = docs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
+                docs = docs.where((data) {
                   final fecha = DateTime.parse(data['fecha']);
                   return fecha.isAfter(_fechaDesde!.subtract(const Duration(days: 1)));
+                }).toList();
+              }
+              if (_fechaHasta != null) {
+                docs = docs.where((data) {
+                  final fecha = DateTime.parse(data['fecha']);
+                  return fecha.isBefore(_fechaHasta!.add(const Duration(days: 1)));
                 }).toList();
               }
               if (_fechaHasta != null) {
@@ -236,8 +241,8 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
                   itemCount: docs.length,
                   separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
                   itemBuilder: (context, index) {
-                    final data = docs[index].data() as Map<String, dynamic>;
-                    final ventaId = docs[index].id;
+                    final data = docs[index];
+                    final ventaId = data['id'].toString();
                     final fecha = DateTime.parse(data['fecha']);
                     final anulada = data['estado'] == 'anulada';
 
@@ -311,16 +316,17 @@ class _HistorialVentasScreenState extends State<HistorialVentasScreen> {
 class _DetalleVenta extends StatelessWidget {
   final Map<String, dynamic> venta;
   final String ventaId;
-  final FirestoreService service;
+  final DatabaseService db;
+  final FirestoreService gastosService;
 
   const _DetalleVenta({
     required this.venta,
     required this.ventaId,
-    required this.service,
+    required this.db,
+    required this.gastosService,
   });
 
   void _anularVenta(BuildContext context) {
-    final passCtrl = TextEditingController();
     final anulada = venta['estado'] == 'anulada';
 
     if (anulada) {
@@ -340,22 +346,7 @@ class _DetalleVenta extends StatelessWidget {
             Text('Anular Venta'),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Esta acción devolverá el stock de los productos. Ingresa la contraseña para confirmar.'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: passCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Contraseña',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.lock),
-              ),
-            ),
-          ],
-        ),
+        content: const Text('Esta acción devolverá el stock de los productos. ¿Confirmás que querés anular esta venta?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -364,24 +355,14 @@ class _DetalleVenta extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              final user = FirebaseAuth.instance.currentUser!;
-final credential = EmailAuthProvider.credential(
-  email: user.email!,
-  password: passCtrl.text,
-);
-try {
-  await user.reauthenticateWithCredential(credential);
-} catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Contraseña incorrecta'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
               Navigator.pop(context);
-              await service.anularVenta(ventaId, venta);
+              final gastosParaEliminar = await db.anularVenta(ventaId, venta);
+              for (final gasto in gastosParaEliminar) {
+                await gastosService.eliminarGastoCostoVenta(
+                  gasto['nombre'],
+                  gasto['cantidad'],
+                );
+              }
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(

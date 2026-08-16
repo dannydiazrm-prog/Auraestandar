@@ -2,10 +2,9 @@ import '../widgets/responsive.dart';
 import "../widgets/page_header.dart";
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firestore_service.dart';
+import '../services/database_service.dart';
 
 class FinanzasScreen extends StatefulWidget {
   const FinanzasScreen({super.key});
@@ -16,6 +15,7 @@ class FinanzasScreen extends StatefulWidget {
 
 class _FinanzasScreenState extends State<FinanzasScreen> {
   final FirestoreService _service = FirestoreService();
+  final DatabaseService _db = DatabaseService.instance;
   String _periodoSeleccionado = 'Mes';
   DateTime? _fechaDesde;
   DateTime? _fechaHasta;
@@ -25,45 +25,23 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
   static const int _itemsPorPagina = 10;
 
   Future<bool> _pedirContrasena() async {
-    final ctrl = TextEditingController();
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmar eliminación'),
-        content: TextField(
-          controller: ctrl,
-          obscureText: true,
-          decoration: const InputDecoration(
-            labelText: 'Contraseña del administrador',
-            border: OutlineInputBorder(),
-          ),
-        ),
+        content: const Text('¿Confirmás que querés eliminar este registro?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
           ElevatedButton(
-            onPressed: () {
-              final user = FirebaseAuth.instance.currentUser;
-              if (user != null && ctrl.text.isNotEmpty) {
-                Navigator.pop(context, true);
-              }
-            },
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Confirmar'),
           ),
         ],
       ),
     );
-    if (result != true) return false;
-    try {
-      final user = FirebaseAuth.instance.currentUser!;
-      final cred = EmailAuthProvider.credential(email: user.email!, password: ctrl.text);
-      await user.reauthenticateWithCredential(cred);
-      return true;
-    } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contraseña incorrecta'), backgroundColor: Colors.red));
-      return false;
-    }
+    return result == true;
   }
-
+  
   Widget _paginador({required int total, required int paginaActual, required Function(int) onCambiar}) {
     final totalPaginas = (total / _itemsPorPagina).ceil();
     if (totalPaginas <= 1) return const SizedBox();
@@ -129,7 +107,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
                       icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
                       onPressed: () async {
                         if (await _pedirContrasena()) {
-                          _service.eliminarGasto(g['id']);
+                          _db.eliminarGasto(g['id']);
                         }
                       },
                     ),
@@ -179,7 +157,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
                             icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
                             onPressed: () async {
                               if (await _pedirContrasena()) {
-                                _service.eliminarGasto(g['id']);
+                                _db.eliminarGasto(g['id']);
                                 Navigator.pop(context);
                               }
                             },
@@ -238,7 +216,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
                   icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
                   onPressed: () async {
                     if (await _pedirContrasena()) {
-                      _service.eliminarCapital(c['id']);
+                      _db.eliminarCapital(c['id']);
                     }
                   },
                 ),
@@ -290,7 +268,7 @@ class _FinanzasScreenState extends State<FinanzasScreen> {
                           icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
                           onPressed: () async {
                             if (await _pedirContrasena()) {
-                              _service.eliminarCapital(c['id']);
+                              _db.eliminarCapital(c['id']);
                               Navigator.pop(context);
                             }
                           },
@@ -606,7 +584,7 @@ void _mostrarTutorialFinanzas() {
                   onPressed: () async {
                     if (descripCtrl.text.trim().isEmpty ||
                         montoCtrl.text.trim().isEmpty) return;
-                    await _service.agregarGasto({
+                    await _db.agregarGasto({
                       'fecha': DateTime.now().toIso8601String(),
                       'categoria': categoria,
                       'descripcion': descripCtrl.text.trim(),
@@ -778,7 +756,7 @@ void _mostrarTutorialFinanzas() {
                 onPressed: () async {
                   if (descripCtrl.text.trim().isEmpty ||
                       montoCtrl.text.trim().isEmpty) return;
-                  await _service.agregarCapital({
+                  await _db.agregarCapital({
                     'fecha': DateTime.now().toIso8601String(),
                     'descripcion': descripCtrl.text.trim(),
                     'monto': double.parse(montoCtrl.text.trim()),
@@ -822,26 +800,21 @@ void _mostrarTutorialFinanzas() {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('ventas')
-          .where('estado', isNotEqualTo: 'anulada')
-          .snapshots(),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _db.getVentas(),
       builder: (context, snapVentas) {
         return StreamBuilder<List<Map<String, dynamic>>>(
-          stream: _service.getGastos(),
+          stream: _db.getGastos(),
           builder: (context, snapGastos) {
             return StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _service.getCapital(),
+              stream: _db.getCapital(),
               builder: (context, snapCapital) {
                 if (snapVentas.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
                 // Ventas del período
-                final todasVentas = snapVentas.data?.docs
-                        .map((d) => d.data() as Map<String, dynamic>)
-                        .toList() ?? [];
+                final todasVentas = snapVentas.data ?? [];
                 final ventasPeriodo = todasVentas
                     .where((v) => _enPeriodo(v['fecha']) && v['estado'] != 'anulada')
                     .toList();

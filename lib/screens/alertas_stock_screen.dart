@@ -2,17 +2,15 @@ import '../widgets/responsive.dart';
 import "../widgets/page_header.dart";
 import 'package:flutter/material.dart';
 import '../models/producto.dart';
-import '../services/firestore_service.dart';
+import '../services/database_service.dart';
 
 class AlertasStockScreen extends StatelessWidget {
   const AlertasStockScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final FirestoreService service = FirestoreService();
-
     return StreamBuilder<List<Producto>>(
-      stream: service.getProductos(),
+      stream: DatabaseService.instance.getProductos(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());

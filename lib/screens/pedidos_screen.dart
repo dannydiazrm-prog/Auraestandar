@@ -1,7 +1,7 @@
 import '../widgets/responsive.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/pedido.dart';
+import '../services/database_service.dart';
 import '../widgets/page_header.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -15,6 +15,8 @@ class PedidosScreen extends StatefulWidget {
 }
 
 class _PedidosScreenState extends State<PedidosScreen> {
+  final DatabaseService _db = DatabaseService.instance;
+
   @override
   void initState() {
     super.initState();
@@ -23,16 +25,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
 
   Future<void> _limpiarEntregados() async {
     final ayer = DateTime.now().subtract(const Duration(days: 1));
-    final snap = await FirebaseFirestore.instance
-        .collection('pedidos')
-        .where('estado', isEqualTo: 'entregado')
-        .get();
-    for (final doc in snap.docs) {
-      final fecha = DateTime.parse(doc['fechaCreacion']);
-      if (fecha.isBefore(ayer)) {
-        await doc.reference.delete();
-      }
-    }
+    await _db.limpiarPedidosEntregadosViejos(ayer);
   }
 
   Color _colorEstado(String estado) {
@@ -237,7 +230,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
                           'fechaCreacion': pedido?.fechaCreacion.toIso8601String() ?? DateTime.now().toIso8601String(),
                         };
                         if (pedido == null) {
-                          await FirebaseFirestore.instance.collection('pedidos').add(data);
+                          await _db.agregarPedido(data);
                           final nuevoPedido = Pedido(
                             id: '',
                             clienteNombre: clienteCtrl.text,
@@ -254,7 +247,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
                           Navigator.pop(context);
                           await _imprimirPedido(nuevoPedido, 'ticket');
                         } else {
-                          await FirebaseFirestore.instance.collection('pedidos').doc(pedido.id).update(data);
+                          await _db.actualizarPedido(pedido.id, data);
                           Navigator.pop(context);
                         }
                       },
@@ -438,7 +431,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                         onPressed: () async {
-                          await FirebaseFirestore.instance.collection('pedidos').doc(pedido.id).delete();
+                          await _db.eliminarPedido(pedido.id);
                           Navigator.pop(context);
                         },
                         child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
@@ -470,7 +463,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
     final seleccionado = estadoActual == estado;
     return GestureDetector(
       onTap: () async {
-        await FirebaseFirestore.instance.collection('pedidos').doc(id).update({'estado': estado});
+        await _db.actualizarEstadoPedido(id, estado);
         Navigator.pop(context);
       },
       child: Container(
@@ -503,7 +496,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
           ),
         );
         if (confirmar == true) {
-          await FirebaseFirestore.instance.collection('pedidos').doc(id).delete();
+          await _db.eliminarPedido(id);
           Navigator.pop(ctx);
         }
       },
@@ -535,13 +528,10 @@ class _PedidosScreenState extends State<PedidosScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('pedidos')
-                .orderBy('fechaEntrega')
-                .snapshots(),
+          StreamBuilder<List<Pedido>>(
+            stream: _db.getPedidos(),
             builder: (context, snap) {
-              if (!snap.hasData || snap.data!.docs.isEmpty) {
+              if (!snap.hasData || snap.data!.isEmpty) {
                 return Container(
                   padding: const EdgeInsets.all(40),
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
@@ -554,8 +544,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
                   ])),
                 );
               }
-              final pedidos = snap.data!.docs.map((doc) =>
-                Pedido.fromMap(doc.id, doc.data() as Map<String, dynamic>)).toList();
+              final pedidos = snap.data!;
               return Container(
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
                 child: ListView.separated(

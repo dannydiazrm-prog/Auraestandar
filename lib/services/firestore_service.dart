@@ -249,6 +249,18 @@ class FirestoreService {
     });
   }
   
+  Future<void> eliminarGastoCostoVenta(String nombre, int cantidad) async {
+    final snap = await _db
+        .collection('gastos')
+        .where('automatico', isEqualTo: true)
+        .where('descripcion', isEqualTo: '$nombre x$cantidad')
+        .where('categoria', isEqualTo: 'Costo de Venta')
+        .get();
+    for (final doc in snap.docs) {
+      await doc.reference.delete();
+    }
+  }
+  
   // AJUSTES
   Future<Map<String, dynamic>> getAjustes() async {
     final doc = await _db.collection('ajustes').doc('configuracion').get();

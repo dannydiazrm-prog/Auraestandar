@@ -1,8 +1,8 @@
 import '../widgets/responsive.dart';
 import "../widgets/page_header.dart";
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../services/database_service.dart';
 
 class ReporteVentasScreen extends StatefulWidget {
   const ReporteVentasScreen({super.key});
@@ -27,16 +27,10 @@ class _ReporteVentasScreenState extends State<ReporteVentasScreen> {
 
   Future<void> _cargarVentas() async {
     setState(() => _cargando = true);
-    final snap = await FirebaseFirestore.instance
-        .collection('ventas')
-        .orderBy('fecha')
-        .get();
+    final todas = await DatabaseService.instance.getVentas().first;
 
     setState(() {
-      _ventas = snap.docs
-          .map((doc) => doc.data())
-          .where((v) => v['estado'] != 'anulada')
-          .toList();
+      _ventas = todas.where((v) => v['estado'] != 'anulada').toList();
       _cargando = false;
     });
   }

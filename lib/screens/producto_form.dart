@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/producto.dart';
 import '../services/firestore_service.dart';
+import '../services/database_service.dart';
 
 class ProductoForm extends StatefulWidget {
   final Producto? productoExistente;
@@ -14,7 +15,8 @@ class ProductoForm extends StatefulWidget {
 
 class _ProductoFormState extends State<ProductoForm> {
   final _formKey = GlobalKey<FormState>();
-  final FirestoreService _service = FirestoreService();
+  final FirestoreService _gastosService = FirestoreService();
+  final DatabaseService _db = DatabaseService.instance;
 
   final _codigoCtrl = TextEditingController();
   final _nombreCtrl = TextEditingController();
@@ -71,10 +73,10 @@ class _ProductoFormState extends State<ProductoForm> {
       precio: double.parse(_precioVentaCtrl.text.trim().replaceAll('.', '')),
     );
 
-    await _service.agregarProducto(producto);
+    await _db.agregarProducto(producto);
 
     if (!_esServicio && diferencia > 0) {
-      await _service.registrarGastoMercaderia(
+      await _gastosService.registrarGastoMercaderia(
         _nombreCtrl.text.trim(),
         diferencia,
         double.parse(_precioCompraCtrl.text.trim().replaceAll('.', '')),

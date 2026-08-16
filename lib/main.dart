@@ -12,6 +12,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/login_screen.dart';
 import 'screens/caja_screen.dart';
 import 'services/firestore_service.dart';
+import 'services/database_service.dart';
 import 'screens/clientes_screen.dart';
 import 'screens/alertas_stock_screen.dart';
 import 'screens/reporte_ventas_screen.dart';
@@ -23,6 +24,7 @@ import 'screens/pedidos_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:io';
 import 'services/personalizacion_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -421,7 +423,7 @@ class DashboardContent extends StatefulWidget {
 }
 
 class _DashboardContentState extends State<DashboardContent> {
-  final FirestoreService _service = FirestoreService();
+  final DatabaseService _db = DatabaseService.instance;
   double _ventasMes = 0;
   int _totalProductos = 0;
   int _stockBajo = 0;
@@ -435,39 +437,30 @@ class _DashboardContentState extends State<DashboardContent> {
 
   Future<void> _cargarEstadisticas() async {
     final ahora = DateTime.now();
-    final inicioMes = DateTime(ahora.year, ahora.month, 1).toIso8601String();
-    final finMes = DateTime(ahora.year, ahora.month + 1, 0, 23, 59, 59).toIso8601String();
+    final inicioMes = DateTime(ahora.year, ahora.month, 1);
+    final finMes = DateTime(ahora.year, ahora.month + 1, 0, 23, 59, 59);
 
-    // Ventas del mes
-    FirebaseFirestore.instance
-        .collection('ventas')
-        .where('fecha', isGreaterThanOrEqualTo: inicioMes)
-        .where('fecha', isLessThanOrEqualTo: finMes)
-        .snapshots()
-        .listen((snap) {
+    _db.getVentas().listen((ventas) {
       double total = 0;
-      for (final v in snap.docs) {
-        if (v.data()['estado'] != 'anulada') {
-          total += (v.data()['total'] ?? 0).toDouble();
+      for (final v in ventas) {
+        final fecha = DateTime.parse(v['fecha']);
+        if (v['estado'] != 'anulada' &&
+            fecha.isAfter(inicioMes.subtract(const Duration(seconds: 1))) &&
+            fecha.isBefore(finMes.add(const Duration(seconds: 1)))) {
+          total += (v['total'] ?? 0).toDouble();
         }
       }
       setState(() => _ventasMes = total);
     });
 
-    // Productos y stock bajo
-    FirebaseFirestore.instance
-        .collection('productos')
-        .where('esServicio', isEqualTo: false)
-        .snapshots()
-        .listen((snap) {
+    _db.getProductos().listen((productos) {
+      final noServicios = productos.where((p) => !p.esServicio).toList();
       int stockBajo = 0;
-      for (final p in snap.docs) {
-        if ((p.data()['stock'] ?? 0) <= (p.data()['stockMinimo'] ?? 0)) {
-          stockBajo++;
-        }
+      for (final p in noServicios) {
+        if (p.stock <= p.stockMinimo) stockBajo++;
       }
       setState(() {
-        _totalProductos = snap.docs.length;
+        _totalProductos = noServicios.length;
         _stockBajo = stockBajo;
         _cargando = false;
       });
@@ -484,7 +477,7 @@ class _DashboardContentState extends State<DashboardContent> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          pageHeader('BIENVENIDO BN24py', context),
+          pageHeader('BIENVENIDO A ${PersonalizacionService.instance.nombreComercio.toUpperCase()}', context),
           isMobile
             ? Column(children: [
                 _tarjeta('Ventas del Mes', _cargando ? '...' : 'Gs. ${formatGs(_ventasMes)}', Icons.trending_up, Colors.blue, onTap: widget.onVerFinanzas),
@@ -614,22 +607,17 @@ class _DashboardContentState extends State<DashboardContent> {
             ),
           ),
           const Divider(height: 24),
-          StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('ventas')
-                .orderBy('fecha', descending: true)
-                .limit(3)
-                .snapshots(),
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: _db.getVentas(),
             builder: (context, snap) {
-              if (!snap.hasData || snap.data!.docs.isEmpty) {
+              if (!snap.hasData || snap.data!.isEmpty) {
                 return const Text(
                   'Aún no hay ventas registradas.',
                   style: TextStyle(color: Colors.grey),
                 );
               }
               return Column(
-                children: snap.data!.docs.map((doc) {
-                  final v = doc.data() as Map<String, dynamic>;
+                children: snap.data!.take(3).map((v) {
                   final fecha = DateTime.parse(v['fecha']);
                   final anulada = v['estado'] == 'anulada';
                   return Container(
@@ -735,28 +723,24 @@ Widget _cardPedidos() {
             ],
           ),
           const Divider(height: 16),
-          StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('pedidos')
-                .orderBy('fechaEntrega')
-                .snapshots(),
+          StreamBuilder<List<Pedido>>(
+            stream: _db.getPedidos(),
             builder: (context, snap) {
-              if (!snap.hasData || snap.data!.docs.isEmpty) {
+              if (!snap.hasData || snap.data!.isEmpty) {
                 return const Text('Sin pedidos pendientes', style: TextStyle(color: Colors.grey, fontSize: 13));
               }
-              final pedidos = snap.data!.docs
-                  .where((doc) => (doc.data() as Map<String, dynamic>)['estado'] != 'entregado')
+              final pedidos = snap.data!
+                  .where((p) => p.estado != 'entregado')
                   .take(3)
                   .toList();
               if (pedidos.isEmpty) {
                 return const Text('Sin pedidos pendientes', style: TextStyle(color: Colors.grey, fontSize: 13));
               }
               return Column(
-                children: pedidos.map((doc) {
-                  final p = doc.data() as Map<String, dynamic>;
-                  final fecha = DateTime.parse(p['fechaEntrega']);
+                children: pedidos.map((p) {
+                  final fecha = p.fechaEntrega;
                   final vencido = fecha.isBefore(DateTime.now());
-                  final estado = p['estado'] ?? 'pendiente';
+                  final estado = p.estado;
                   Color colorEstado;
                   String textoEstado;
                   switch (estado) {
@@ -782,7 +766,7 @@ Widget _cardPedidos() {
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(p['clienteNombre'] ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A2744))),
+                              Text(p.clienteNombre, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A2744))),
                               const SizedBox(height: 4),
                               Text('Entrega: ${fecha.day}/${fecha.month}/${fecha.year}', style: const TextStyle(color: Colors.grey)),
                               const SizedBox(height: 4),
@@ -797,13 +781,10 @@ Widget _cardPedidos() {
                               Wrap(
                                 spacing: 8,
                                 children: [
-                                  _chipEstado(doc.id, 'pendiente', 'Pendiente', Colors.orange, estado),
-                                  _chipEstado(doc.id, 'en_proceso', 'En proceso', Colors.blue, estado),
-                                  _chipEstado(doc.id, 'listo', 'Listo', Colors.green, estado),
-                                  _chipEstadoEntregado(doc.id, context),
-                                ],
-                              ),
-                            ],
+                                  _chipEstado(p.id, 'pendiente', 'Pendiente', Colors.orange, estado),
+                                  _chipEstado(p.id, 'en_proceso', 'En proceso', Colors.blue, estado),
+                                  _chipEstado(p.id, 'listo', 'Listo', Colors.green, estado),
+                                  _chipEstadoEntregado(p.id, context),
                           ),
                         ),
 						),
@@ -824,7 +805,7 @@ Widget _cardPedidos() {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(p['clienteNombre'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), overflow: TextOverflow.ellipsis),
+                                Text(p.clienteNombre, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), overflow: TextOverflow.ellipsis),
                                 Text(textoEstado, style: TextStyle(fontSize: 11, color: colorEstado)),
                               ],
                             ),
@@ -848,7 +829,7 @@ Widget _cardPedidos() {
     final seleccionado = estadoActual == estado;
     return GestureDetector(
       onTap: () async {
-        await FirebaseFirestore.instance.collection('pedidos').doc(id).update({'estado': estado});
+        await DatabaseService.instance.actualizarEstadoPedido(id, estado);
         Navigator.pop(context);
       },
       child: Container(
@@ -881,7 +862,7 @@ Widget _cardPedidos() {
           ),
         );
         if (confirmar == true) {
-          await FirebaseFirestore.instance.collection('pedidos').doc(id).delete();
+          await DatabaseService.instance.eliminarPedido(id);
           Navigator.pop(ctx);
         }
       },
