@@ -783,9 +783,13 @@ Widget _cardPedidos() {
                                   _chipEstado(p.id, 'en_proceso', 'En proceso', Colors.blue, estado),
                                   _chipEstado(p.id, 'listo', 'Listo', Colors.green, estado),
                                   _chipEstadoEntregado(p.id, context),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-						),
+                      ),
+                        ),
                       );
                     },
                     child: Container(
