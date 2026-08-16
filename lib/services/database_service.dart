@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
@@ -51,7 +52,9 @@ class DatabaseService {
   Future<Database> _getDb() async {
     if (_db != null) return _db!;
 
-    if (!kIsWeb) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      // Solo Windows necesita este inicializador especial.
+      // Android usa su motor de base de datos normal, sin tocar nada acá.
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
     }
