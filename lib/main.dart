@@ -21,7 +21,8 @@ import 'screens/ajustes_screen.dart';
 import 'screens/pedidos_screen.dart';
 import 'screens/pedidos_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
+import 'services/personalizacion_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +57,7 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _cargarEstado();
+    PersonalizacionService.instance.cargar();
   }
 
   Future<void> _cargarEstado() async {
@@ -74,28 +76,33 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Aura Estándar',
-      debugShowCheckedModeBanner: false,
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('es'),
-      ],
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1E88E5),
-        ),
-        useMaterial3: true,
-      ),
-      home: _activada == null
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-          : _activada == true
-              ? MainLayout(onCerrarSesion: _marcarDesactivada)
-              : LoginScreen(onActivado: _marcarActivada),
+    return AnimatedBuilder(
+      animation: PersonalizacionService.instance,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'Aura Estándar',
+          debugShowCheckedModeBanner: false,
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('es'),
+          ],
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: PersonalizacionService.instance.colorPrimario,
+            ),
+            useMaterial3: true,
+          ),
+          home: _activada == null
+              ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+              : _activada == true
+                  ? MainLayout(onCerrarSesion: _marcarDesactivada)
+                  : LoginScreen(onActivado: _marcarActivada),
+        );
+      },
     );
   }
 }
@@ -141,15 +148,26 @@ class _MainLayoutState extends State<MainLayout> {
             const SizedBox(height: 20),
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                'assets/IMG-20260228-WA0018.jpg',
-                width: 80,
-                height: 80,
-                fit: BoxFit.contain,
-              ),
+              child: PersonalizacionService.instance.logoPath != null
+                  ? Image.file(
+                      File(PersonalizacionService.instance.logoPath!),
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                    )
+                  : Container(
+                      width: 80,
+                      height: 80,
+                      color: Colors.white12,
+                      child: const Icon(Icons.storefront, color: Colors.white70, size: 40),
+                    ),
             ),
             const SizedBox(height: 10),
-            const Text('ADMINISTRADOR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(
+              PersonalizacionService.instance.nombreComercio.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+            ),
             const Text('Gestión e Inventario', style: TextStyle(color: Colors.white54, fontSize: 11)),
             const SizedBox(height: 20),
             _menuSimple('Dashboard'),
@@ -197,6 +215,7 @@ class _MainLayoutState extends State<MainLayout> {
       ),
     );
   }
+
 
    @override
   Widget build(BuildContext context) {
