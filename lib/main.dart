@@ -141,7 +141,7 @@ class _MainLayoutState extends State<MainLayout> {
   Widget _buildSidebar() {
     return Container(
       width: 230,
-      color: const Color(0xFF1A2744),
+      color: PersonalizacionService.instance.colorPrimario,
       child: SingleChildScrollView(
         child: Column(
           children: [
@@ -175,39 +175,6 @@ class _MainLayoutState extends State<MainLayout> {
               _submenus[nombre]!.isEmpty
                 ? _menuSimple(nombre)
                 : _menuDesplegable(nombre),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 12),
-              child: IconButton(
-                icon: const Icon(Icons.logout, color: Colors.white70, size: 28),
-                tooltip: 'Cerrar sesión',
-                onPressed: () async {
-                  final confirmar = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Cerrar sesión'),
-                      content: const Text('¿Estás seguro que deseas cerrar sesión?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Cancelar'),
-                        ),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Cerrar sesión', style: TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
-                  );
-                  if (confirmar == true) {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setBool('app_activada', false);
-                    widget.onCerrarSesion();
-                  }
-                },
-              ),
             ),
             const SizedBox(height: 20),
           ],
@@ -920,7 +887,7 @@ Widget _cardPedidos() {
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E88E5),
+                backgroundColor: PersonalizacionService.instance.colorPrimario,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               onPressed: widget.onFacturar,
@@ -985,7 +952,7 @@ Widget _cardPedidos() {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5)),
+                              style: ElevatedButton.styleFrom(backgroundColor: PersonalizacionService.instance.colorPrimario),
                               onPressed: () => Navigator.pop(context),
                               child: const Text('Cerrar', style: TextStyle(color: Colors.white)),
                             ),

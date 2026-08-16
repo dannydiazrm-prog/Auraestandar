@@ -1,5 +1,6 @@
 import '../widgets/responsive.dart';
 import 'package:flutter/material.dart';
+import '../services/personalizacion_service.dart';
 import '../models/pedido.dart';
 import '../services/database_service.dart';
 import '../widgets/page_header.dart';
@@ -211,7 +212,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E88E5),
+                        backgroundColor: PersonalizacionService.instance.colorPrimario,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       onPressed: () async {
@@ -518,7 +519,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
           pageHeader('PEDIDOS', context,
             trailing: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E88E5),
+                backgroundColor: PersonalizacionService.instance.colorPrimario,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),

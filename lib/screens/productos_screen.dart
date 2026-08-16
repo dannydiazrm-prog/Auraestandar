@@ -3,6 +3,7 @@ import 'dart:io';
 import '../widgets/responsive.dart';
 import "../widgets/page_header.dart";
 import 'package:flutter/material.dart';
+import '../services/personalizacion_service.dart';
 import 'package:flutter/services.dart';
 import '../models/producto.dart';
 import '../services/firestore_service.dart';
@@ -243,7 +244,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
                       actions: [
                         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
                         ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5)),
+                          style: ElevatedButton.styleFrom(backgroundColor: PersonalizacionService.instance.colorPrimario),
                           onPressed: () => Navigator.pop(ctx, true),
                           child: const Text('Sí, actualizar', style: TextStyle(color: Colors.white)),
                         ),
@@ -365,7 +366,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
             context,
             trailing: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E88E5),
+                backgroundColor: PersonalizacionService.instance.colorPrimario,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),

@@ -6,7 +6,7 @@ class PersonalizacionService extends ChangeNotifier {
   PersonalizacionService._();
 
   String nombreComercio = 'Aura Estándar';
-  Color colorPrimario = const Color(0xFF1E88E5);
+  Color colorPrimario = const Color(0xFF29B6F6);
   String? logoPath;
 
   Future<void> cargar() async {
@@ -14,7 +14,7 @@ class PersonalizacionService extends ChangeNotifier {
     nombreComercio = prefs.getString('nombre_comercio') ?? 'Aura Estándar';
     final colorGuardado = prefs.getInt('color_primario');
     colorPrimario =
-        colorGuardado != null ? Color(colorGuardado) : const Color(0xFF1E88E5);
+        colorGuardado != null ? Color(colorGuardado) : const Color(0xFF29B6F6);
     logoPath = prefs.getString('logo_path');
     notifyListeners();
   }

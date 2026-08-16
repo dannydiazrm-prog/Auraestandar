@@ -1,6 +1,7 @@
 import '../widgets/responsive.dart';
 import "../widgets/page_header.dart";
 import 'package:flutter/material.dart';
+import '../services/personalizacion_service.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -156,7 +157,7 @@ class _ReporteInventarioScreenState extends State<ReporteInventarioScreen> {
                       actions: [
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E88E5),
+                            backgroundColor: PersonalizacionService.instance.colorPrimario,
                           ),
                           onPressed: () => Navigator.pop(context),
                           child: const Text('Entendido',

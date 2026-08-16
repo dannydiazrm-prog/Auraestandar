@@ -1,6 +1,7 @@
 import '../widgets/responsive.dart';
 import "../widgets/page_header.dart";
 import 'package:flutter/material.dart';
+import '../services/personalizacion_service.dart';
 import 'package:flutter/services.dart';
 import '../models/producto.dart';
 import '../models/cliente.dart';
@@ -158,7 +159,7 @@ void _mostrarMontoLibre(Producto producto) {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5)),
+            style: ElevatedButton.styleFrom(backgroundColor: PersonalizacionService.instance.colorPrimario),
             onPressed: () {
               final monto = double.tryParse(montoCtrl.text.replaceAll('.', '')) ?? 0;
               if (monto <= 0) return;
@@ -289,7 +290,7 @@ void _mostrarMontoLibre(Producto producto) {
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E88E5),
+              backgroundColor: PersonalizacionService.instance.colorPrimario,
             ),
             onPressed: () async {
               Navigator.pop(context);
@@ -369,7 +370,7 @@ void _mostrarMontoLibre(Producto producto) {
                     const SizedBox(width: 12),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E88E5),
+                        backgroundColor: PersonalizacionService.instance.colorPrimario,
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                       ),
                       onPressed: _buscarCliente,
@@ -676,7 +677,7 @@ void _mostrarMontoLibre(Producto producto) {
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E88E5),
+                      backgroundColor: PersonalizacionService.instance.colorPrimario,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),

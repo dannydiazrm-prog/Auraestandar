@@ -1,5 +1,6 @@
 import '../widgets/responsive.dart';
 import 'package:flutter/material.dart';
+import '../services/personalizacion_service.dart';
 import '../services/firestore_service.dart';
 import '../services/database_service.dart';
 import '../services/ticket_service.dart';
@@ -596,7 +597,7 @@ class _DetalleVenta extends StatelessWidget {
                 Expanded(
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E88E5),
+                      backgroundColor: PersonalizacionService.instance.colorPrimario,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),

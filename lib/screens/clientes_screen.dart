@@ -2,6 +2,7 @@ import '../widgets/responsive.dart';
 import "../widgets/page_header.dart";
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../services/personalizacion_service.dart';
 import 'dart:io';
 import '../models/cliente.dart';
 import '../services/firestore_service.dart';
@@ -72,7 +73,7 @@ class _ClientesScreenState extends State<ClientesScreen> {
           ),
           actions: [
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5)),
+              style: ElevatedButton.styleFrom(backgroundColor: PersonalizacionService.instance.colorPrimario),
               onPressed: () => Navigator.pop(context),
               child: const Text('Entendido', style: TextStyle(color: Colors.white)),
             ),
