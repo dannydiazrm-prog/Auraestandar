@@ -61,10 +61,10 @@ class DatabaseService {
 
     final path = join(await getDatabasesPath(), 'aura_estandar.db');
 
-    _db = await databaseFactory.openDatabase(
+        _db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 2, // Subimos la versión a 2
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE productos (
@@ -125,6 +125,7 @@ class DatabaseService {
               tipo TEXT
             )
           ''');
+          // Tabla pedidos actualizada con motivo y hora
           await db.execute('''
             CREATE TABLE pedidos (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -133,12 +134,22 @@ class DatabaseService {
               adelanto REAL,
               fechaEntrega TEXT,
               estado TEXT,
-              fechaCreacion TEXT
+              fechaCreacion TEXT,
+              motivo TEXT,
+              hora TEXT
             )
           ''');
         },
+        // Esto agrega las columnas automáticamente si el usuario ya tenía la versión 1
+        onUpgrade: (db, oldVersion, newVersion) async {
+          if (oldVersion < 2) {
+            await db.execute("ALTER TABLE pedidos ADD COLUMN motivo TEXT;");
+            await db.execute("ALTER TABLE pedidos ADD COLUMN hora TEXT;");
+          }
+        },
       ),
     );
+
     return _db!;
   }
 
@@ -653,7 +664,7 @@ class DatabaseService {
     await _emitirPedidos();
   }
 
-  Future<void> actualizarEstadoPedido(String id, String estado) async {
+    Future<void> actualizarEstadoPedido(String id, String estado) async {
     if (kIsWeb) {
       final index = _pedidosMemoria.indexWhere((p) => p.id == id);
       if (index != -1) {
@@ -666,6 +677,8 @@ class DatabaseService {
           fechaEntrega: p.fechaEntrega,
           estado: estado,
           fechaCreacion: p.fechaCreacion,
+          motivo: p.motivo, // Conservamos el motivo
+          hora: p.hora,     // Conservamos la hora
         );
       }
       await _emitirPedidos();
@@ -676,6 +689,7 @@ class DatabaseService {
         where: 'id = ?', whereArgs: [id]);
     await _emitirPedidos();
   }
+
 
   Future<void> eliminarPedido(String id) async {
     if (kIsWeb) {
