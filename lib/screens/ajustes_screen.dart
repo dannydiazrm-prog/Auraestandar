@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/firestore_service.dart';
 import '../services/personalizacion_service.dart';
 
 class AjustesScreen extends StatefulWidget {
@@ -68,6 +70,13 @@ class _AjustesScreenState extends State<AjustesScreen> {
     setState(() {});
   }
 
+Future<void> _abrirWhatsapp() async {
+    final uri = Uri.parse('https://wa.me/595983069263');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+  
   Future<void> _seleccionarColor() async {
     Color colorSeleccionado = PersonalizacionService.instance.colorPrimario;
 
@@ -243,6 +252,35 @@ class _AjustesScreenState extends State<AjustesScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          _seccion(
+            titulo: 'Acerca de',
+            icono: Icons.info_outline,
+            children: [
+              const Text(
+                'Versión 1.0.0',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Creado por JP LABS',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _abrirWhatsapp,
+                  icon: const Icon(Icons.support_agent, size: 18),
+                  label: const Text('Soporte'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 24),
         ],
       ),
@@ -255,41 +293,26 @@ class _AjustesScreenState extends State<AjustesScreen> {
     required List<Widget> children,
   }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E88E5).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icono, color: const Color(0xFF1E88E5), size: 22),
-              ),
-              const SizedBox(width: 12),
+              Icon(icono, color: PersonalizacionService.instance.colorPrimario, size: 20),
+              const SizedBox(width: 10),
               Text(
                 titulo,
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A2744), fontSize: 16),
+                style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1A2744), fontSize: 15),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          const Divider(height: 1),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           ...children,
         ],
       ),

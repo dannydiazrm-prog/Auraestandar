@@ -45,7 +45,7 @@ class PersonalizacionService extends ChangeNotifier {
   }
   
   Color get colorTexto {
-    return colorPrimario.computeLuminance() > 0.4
+    return colorPrimario.computeLuminance() > 0.6
         ? const Color(0xFF1A2744)
         : Colors.white;
   }
