@@ -20,6 +20,7 @@ jobs:
       - name: Generar google-services.json
         run: echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > android/app/google-services.json
       - run: flutter pub get
+      - run: dart run flutter_launcher_icons
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
@@ -34,6 +35,7 @@ jobs:
         with:
           flutter-version: '3.38.5'
       - run: flutter pub get
+      - run: dart run flutter_launcher_icons
       - run: flutter build windows --release
       - uses: actions/upload-artifact@v4
         with:

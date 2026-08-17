@@ -27,9 +27,13 @@ class PersonalizacionService extends ChangeNotifier {
   }
 
   Future<void> guardarColor(Color color) async {
-    colorPrimario = color;
+    final hsl = HSLColor.fromColor(color);
+    final luminosidadSegura = hsl.lightness.clamp(0.25, 0.75);
+    final colorSeguro = hsl.withLightness(luminosidadSegura).toColor();
+
+    colorPrimario = colorSeguro;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('color_primario', color.value);
+    await prefs.setInt('color_primario', colorSeguro.value);
     notifyListeners();
   }
 
@@ -38,5 +42,11 @@ class PersonalizacionService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('logo_path', path);
     notifyListeners();
+  }
+  
+  Color get colorTexto {
+    return colorPrimario.computeLuminance() > 0.4
+        ? const Color(0xFF1A2744)
+        : Colors.white;
   }
 }

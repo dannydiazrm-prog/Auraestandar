@@ -148,27 +148,27 @@ class _MainLayoutState extends State<MainLayout> {
             const SizedBox(height: 20),
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: PersonalizacionService.instance.logoPath != null
+          child: PersonalizacionService.instance.logoPath != null
                   ? Image.file(
                       File(PersonalizacionService.instance.logoPath!),
                       width: 80,
                       height: 80,
                       fit: BoxFit.cover,
                     )
-                  : Container(
+                  : Image.asset(
+                      'assets/logo.png',
                       width: 80,
                       height: 80,
-                      color: Colors.white12,
-                      child: const Icon(Icons.storefront, color: Colors.white70, size: 40),
+                      fit: BoxFit.cover,
                     ),
             ),
             const SizedBox(height: 10),
             Text(
               PersonalizacionService.instance.nombreComercio.toUpperCase(),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+              style: TextStyle(color: PersonalizacionService.instance.colorTexto, fontWeight: FontWeight.bold, fontSize: 18),
             ),
-            const Text('Gestión e Inventario', style: TextStyle(color: Colors.white54, fontSize: 11)),
+            Text('Gestión e Inventario', style: TextStyle(color: PersonalizacionService.instance.colorTexto.withOpacity(0.6), fontSize: 11)),
             const SizedBox(height: 20),
             _menuSimple('Dashboard'),
             ..._submenus.keys.map((nombre) =>
@@ -293,13 +293,13 @@ onVerProductos: () => setState(() => _paginaActual = 'Productos'),
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       decoration: BoxDecoration(
         color: activo
-            ? const Color(0xFF1E88E5).withOpacity(0.3)
+            ? PersonalizacionService.instance.colorTexto.withOpacity(0.15)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
       ),
       child: ListTile(
-        leading: Icon(_iconos[nombre], color: Colors.white),
-        title: Text(nombre, style: const TextStyle(color: Colors.white)),
+        leading: Icon(_iconos[nombre], color: PersonalizacionService.instance.colorTexto),
+        title: Text(nombre, style: TextStyle(color: PersonalizacionService.instance.colorTexto)),
         onTap: () {
           if (MediaQuery.of(context).size.width < 600) {
             Navigator.pop(context);
@@ -314,10 +314,10 @@ onVerProductos: () => setState(() => _paginaActual = 'Productos'),
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
-        leading: Icon(_iconos[nombre], color: Colors.white),
-        title: Text(nombre, style: const TextStyle(color: Colors.white)),
-        iconColor: Colors.white,
-        collapsedIconColor: Colors.white,
+        leading: Icon(_iconos[nombre], color: PersonalizacionService.instance.colorTexto),
+        title: Text(nombre, style: TextStyle(color: PersonalizacionService.instance.colorTexto)),
+        iconColor: PersonalizacionService.instance.colorTexto,
+        collapsedIconColor: PersonalizacionService.instance.colorTexto,
         childrenPadding: const EdgeInsets.only(left: 20),
         children: _submenus[nombre]!.map((sub) {
           final activo = _paginaActual == sub;
@@ -325,12 +325,12 @@ onVerProductos: () => setState(() => _paginaActual = 'Productos'),
             leading: Icon(
               Icons.circle,
               size: 8,
-              color: activo ? const Color(0xFF1E88E5) : Colors.white54,
+              color: activo ? PersonalizacionService.instance.colorTexto : PersonalizacionService.instance.colorTexto.withOpacity(0.5),
             ),
             title: Text(
               sub,
               style: TextStyle(
-                color: activo ? const Color(0xFF1E88E5) : Colors.white70,
+                color: activo ? PersonalizacionService.instance.colorTexto : PersonalizacionService.instance.colorTexto.withOpacity(0.7),
                 fontSize: 13,
               ),
             ),
