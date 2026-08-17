@@ -36,6 +36,8 @@ class Pedido {
   final DateTime fechaEntrega;
   final String estado;
   final DateTime fechaCreacion;
+  final String? motivo;
+  final String? hora;
 
   Pedido({
     required this.id,
@@ -45,6 +47,8 @@ class Pedido {
     required this.fechaEntrega,
     required this.estado,
     required this.fechaCreacion,
+    this.motivo, // Le sacamos el "required"
+    this.hora,   // Le sacamos el "required"
   });
 
   double get total => items.fold(0, (sum, item) => sum + item.subtotal);
@@ -61,6 +65,8 @@ class Pedido {
       fechaEntrega: DateTime.parse(map['fechaEntrega']),
       estado: map['estado'] ?? 'pendiente',
       fechaCreacion: DateTime.parse(map['fechaCreacion'] ?? DateTime.now().toIso8601String()),
+      motivo: map['motivo'], // AGREGADO AQUÍ PARA LEER
+      hora: map['hora'],     // AGREGADO AQUÍ PARA LEER
     );
   }
 
@@ -72,6 +78,8 @@ class Pedido {
       'fechaEntrega': fechaEntrega.toIso8601String(),
       'estado': estado,
       'fechaCreacion': fechaCreacion.toIso8601String(),
+      'motivo': motivo, // AGREGADO AQUÍ PARA GUARDAR
+      'hora': hora,     // AGREGADO AQUÍ PARA GUARDAR
     };
   }
 }

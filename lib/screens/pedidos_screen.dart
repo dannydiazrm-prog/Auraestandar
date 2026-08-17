@@ -7,6 +7,8 @@ import '../widgets/page_header.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PedidosScreen extends StatefulWidget {
   const PedidosScreen({super.key});
@@ -17,11 +19,26 @@ class PedidosScreen extends StatefulWidget {
 
 class _PedidosScreenState extends State<PedidosScreen> {
   final DatabaseService _db = DatabaseService.instance;
+  bool _esServicio = false;
+  String _nombreComercio = '';
+  bool _cargando = true;
 
   @override
   void initState() {
     super.initState();
+    _cargarPreferencias();
     _limpiarEntregados();
+  }
+
+  Future<void> _cargarPreferencias() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _esServicio = prefs.getString('tipo_negocio') == 'Servicios';
+        _nombreComercio = prefs.getString('nombre_comercio') ?? 'Mi Negocio';
+        _cargando = false;
+      });
+    }
   }
 
   Future<void> _limpiarEntregados() async {
@@ -30,6 +47,9 @@ class _PedidosScreenState extends State<PedidosScreen> {
   }
 
   Color _colorEstado(String estado) {
+    if (_esServicio) {
+      return estado == 'entregado' ? Colors.grey : Colors.orange;
+    }
     switch (estado) {
       case 'en_proceso': return Colors.blue;
       case 'listo': return Colors.green;
@@ -39,6 +59,9 @@ class _PedidosScreenState extends State<PedidosScreen> {
   }
 
   String _textoEstado(String estado) {
+    if (_esServicio) {
+      return estado == 'entregado' ? 'Realizado' : 'A confirmar';
+    }
     switch (estado) {
       case 'en_proceso': return 'En proceso';
       case 'listo': return 'Listo';
@@ -47,10 +70,46 @@ class _PedidosScreenState extends State<PedidosScreen> {
     }
   }
 
+  Future<void> _compartirPorWhatsApp(Pedido pedido) async {
+    String texto = '';
+    final fecha = '${pedido.fechaEntrega.day}/${pedido.fechaEntrega.month}/${pedido.fechaEntrega.year}';
+    
+    if (_esServicio) {
+      final horaStr = pedido.hora != null && pedido.hora!.isNotEmpty ? ' a las ${pedido.hora}' : '';
+      final motivoStr = pedido.motivo != null && pedido.motivo!.isNotEmpty ? ' para ${pedido.motivo}' : '';
+      texto = '¡Hola! Te escribo de $_nombreComercio. Te confirmo tu turno$motivoStr el $fecha$horaStr. Por favor, confirmame tu asistencia. ¡Gracias!';
+    } else {
+      texto = '¡Hola! Te escribo de $_nombreComercio. Tu pedido por Gs. ${formatGs(pedido.total)} está registrado para el $fecha. Por favor, confirmame si todo está correcto. ¡Gracias!';
+    }
+
+    final url = Uri.parse('whatsapp://send?text=${Uri.encodeComponent(texto)}');
+    try {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo abrir WhatsApp')),
+        );
+      }
+    }
+  }
+
   void _abrirFormulario({Pedido? pedido}) {
     final clienteCtrl = TextEditingController(text: pedido?.clienteNombre ?? '');
     final adelantoCtrl = TextEditingController(text: pedido?.adelanto.toStringAsFixed(0) ?? '0');
+    final motivoCtrl = TextEditingController(text: pedido?.motivo ?? '');
+    
     DateTime fechaEntrega = pedido?.fechaEntrega ?? DateTime.now().add(const Duration(days: 1));
+    TimeOfDay? horaPactada;
+    if (pedido?.hora != null && pedido!.hora!.isNotEmpty) {
+      try {
+        final partes = pedido.hora!.split(':');
+        horaPactada = TimeOfDay(hour: int.parse(partes[0]), minute: int.parse(partes[1]));
+      } catch (e) {
+        horaPactada = null;
+      }
+    }
+    
     String estado = pedido?.estado ?? 'pendiente';
     List<Map<String, dynamic>> items = pedido?.items.map((i) => {
       'descripcion': i.descripcion,
@@ -87,15 +146,28 @@ class _PedidosScreenState extends State<PedidosScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(pedido == null ? 'Nuevo Pedido' : 'Editar Pedido',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A2744))),
+                  Text(
+                    pedido == null 
+                      ? (_esServicio ? 'Nuevo Agendamiento' : 'Nuevo Pedido') 
+                      : (_esServicio ? 'Editar Agendamiento' : 'Editar Pedido'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A2744))
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: clienteCtrl,
                     decoration: const InputDecoration(labelText: 'Cliente', border: OutlineInputBorder()),
                   ),
+                  
+                  if (_esServicio) ...[
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: motivoCtrl,
+                      decoration: const InputDecoration(labelText: 'Motivo del agendamiento', border: OutlineInputBorder()),
+                    ),
+                  ],
+
                   const SizedBox(height: 16),
-                  const Text('Productos / Servicios', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A2744))),
+                  Text(_esServicio ? 'Productos / Servicios (Opcional)' : 'Productos / Servicios', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A2744))),
                   const SizedBox(height: 8),
                   ...items.asMap().entries.map((entry) {
                     final i = entry.key;
@@ -176,7 +248,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
                   TextField(
                     controller: adelantoCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Adelanto recibido (Gs.)', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(labelText: 'Adelanto recibido (Opcional)', border: OutlineInputBorder()),
                     onChanged: (_) => setModalState(() {}),
                   ),
                   const SizedBox(height: 8),
@@ -189,9 +261,11 @@ class _PedidosScreenState extends State<PedidosScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
+                  
+                  // Fila de Fecha y Hora
                   Row(
                     children: [
-                      const Text('Fecha de entrega: ', style: TextStyle(color: Colors.grey)),
+                      const Text('Fecha: ', style: TextStyle(color: Colors.grey)),
                       TextButton(
                         onPressed: () async {
                           final fecha = await showDatePicker(
@@ -205,8 +279,28 @@ class _PedidosScreenState extends State<PedidosScreen> {
                         child: Text('${fechaEntrega.day}/${fechaEntrega.month}/${fechaEntrega.year}',
                             style: const TextStyle(color: Color(0xFF1E88E5), fontWeight: FontWeight.bold)),
                       ),
+                      
+                      if (_esServicio) ...[
+                        const Spacer(),
+                        const Text('Hora: ', style: TextStyle(color: Colors.grey)),
+                        TextButton(
+                          onPressed: () async {
+                            final hora = await showTimePicker(
+                              context: context,
+                              initialTime: horaPactada ?? TimeOfDay.now(),
+                            );
+                            if (hora != null) setModalState(() => horaPactada = hora);
+                          },
+                          child: Text(
+                              horaPactada != null 
+                                ? '${horaPactada!.hour.toString().padLeft(2, '0')}:${horaPactada!.minute.toString().padLeft(2, '0')}' 
+                                : 'Seleccionar',
+                              style: const TextStyle(color: Color(0xFF1E88E5), fontWeight: FontWeight.bold)),
+                        ),
+                      ]
                     ],
                   ),
+                  
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
@@ -216,12 +310,19 @@ class _PedidosScreenState extends State<PedidosScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       onPressed: () async {
-                        if (clienteCtrl.text.isEmpty || items.isEmpty) return;
+                        if (clienteCtrl.text.isEmpty || (!_esServicio && items.isEmpty)) return;
+                        
+                        String? horaString;
+                        if (horaPactada != null) {
+                          horaString = '${horaPactada!.hour.toString().padLeft(2, '0')}:${horaPactada!.minute.toString().padLeft(2, '0')}';
+                        }
+
                         final itemsData = items.map((item) => {
                           'descripcion': item['descCtrl'].text,
                           'cantidad': int.tryParse(item['cantCtrl'].text) ?? 1,
                           'precio': double.tryParse(item['precioCtrl'].text) ?? 0,
                         }).toList();
+                        
                         final data = {
                           'clienteNombre': clienteCtrl.text,
                           'items': itemsData,
@@ -229,7 +330,10 @@ class _PedidosScreenState extends State<PedidosScreen> {
                           'fechaEntrega': fechaEntrega.toIso8601String(),
                           'estado': estado,
                           'fechaCreacion': pedido?.fechaCreacion.toIso8601String() ?? DateTime.now().toIso8601String(),
+                          'motivo': motivoCtrl.text,
+                          'hora': horaString,
                         };
+                        
                         if (pedido == null) {
                           await _db.agregarPedido(data);
                           final nuevoPedido = Pedido(
@@ -244,6 +348,8 @@ class _PedidosScreenState extends State<PedidosScreen> {
                             fechaEntrega: fechaEntrega,
                             estado: 'pendiente',
                             fechaCreacion: DateTime.now(),
+                            motivo: motivoCtrl.text,
+                            hora: horaString,
                           );
                           Navigator.pop(context);
                           await _imprimirPedido(nuevoPedido, 'ticket');
@@ -252,8 +358,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
                           Navigator.pop(context);
                         }
                       },
-                      child: Text(pedido == null ? 'Guardar Pedido' : 'Actualizar',
-                          style: const TextStyle(color: Colors.white)),
+                      child: Text(pedido == null ? 'Guardar' : 'Actualizar', style: const TextStyle(color: Colors.white)),
                     ),
                   ),
                 ],
@@ -264,7 +369,6 @@ class _PedidosScreenState extends State<PedidosScreen> {
       ),
     );
   }
-
 
   Future<void> _imprimirPedido(Pedido pedido, String formato) async {
     final pdf = pw.Document();
@@ -291,24 +395,39 @@ class _PedidosScreenState extends State<PedidosScreen> {
                   borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
                 ),
                 child: pw.Text(
-                  'ENTREGAR EL: ${pedido.fechaEntrega.day}/${pedido.fechaEntrega.month}/${pedido.fechaEntrega.year}',
+                  _esServicio 
+                    ? 'FECHA: ${pedido.fechaEntrega.day}/${pedido.fechaEntrega.month}/${pedido.fechaEntrega.year} ${pedido.hora != null ? '- HORA: ${pedido.hora}' : ''}'
+                    : 'ENTREGAR EL: ${pedido.fechaEntrega.day}/${pedido.fechaEntrega.month}/${pedido.fechaEntrega.year}',
                   style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
                 ),
               ),
             ),
             pw.SizedBox(height: 20),
-            pw.Text('DESCRIPCIÓN:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+            
+            if (_esServicio && pedido.motivo != null && pedido.motivo!.isNotEmpty) ...[
+              pw.Text('MOTIVO DEL AGENDAMIENTO:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 8),
+              pw.Text(pedido.motivo!, style: const pw.TextStyle(fontSize: 13)),
+              pw.SizedBox(height: 12),
+              pw.Divider(),
+              pw.SizedBox(height: 12),
+            ],
+
+            if (pedido.items.isNotEmpty) ...[
+              pw.Text('DESCRIPCIÓN:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 8),
+              pw.Divider(),
+              ...pedido.items.map((item) => pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(vertical: 4),
+                child: pw.Text('• ${item.cantidad}x ${item.descripcion}', style: const pw.TextStyle(fontSize: 13)),
+              )),
+              pw.Divider(),
+              pw.SizedBox(height: 12),
+            ],
+
+            pw.Text('ESTADO:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 8),
-            pw.Divider(),
-            ...pedido.items.map((item) => pw.Padding(
-              padding: const pw.EdgeInsets.symmetric(vertical: 4),
-              child: pw.Text('• ${item.cantidad}x ${item.descripcion}', style: const pw.TextStyle(fontSize: 13)),
-            )),
-            pw.Divider(),
-            pw.SizedBox(height: 12),
-            pw.Text('ESTADO DEL PEDIDO:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 8),
-            ...['Pendiente', 'En proceso', 'Listo', 'Entregado'].map((estado) => pw.Padding(
+            ...(_esServicio ? ['A confirmar', 'Realizado'] : ['Pendiente', 'En proceso', 'Listo', 'Entregado']).map((estado) => pw.Padding(
               padding: const pw.EdgeInsets.symmetric(vertical: 5),
               child: pw.Row(
                 children: [
@@ -349,32 +468,19 @@ class _PedidosScreenState extends State<PedidosScreen> {
                 ],
               ),
             ),
-            pw.SizedBox(height: 20),
-            pw.Text('NOTAS:', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 6),
-            pw.Container(
-              width: double.infinity,
-              height: 120,
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.grey400, width: 1),
-                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
-              ),
-            ),
+            // Las NOTAS han sido removidas de ambos PDFs
           ],
         ),
       ),
     );
     await Printing.layoutPdf(onLayout: (format) async => pdf.save());
   }
+
   void _mostrarOpciones(Pedido pedido) {
     final estado = pedido.estado;
-    Color colorEstado;
-    String textoEstado;
-    switch (estado) {
-      case 'en_proceso': colorEstado = Colors.blue; textoEstado = 'En proceso'; break;
-      case 'listo': colorEstado = Colors.green; textoEstado = 'Listo'; break;
-      default: colorEstado = Colors.orange; textoEstado = 'Pendiente';
-    }
+    Color colorEstado = _colorEstado(estado);
+    String textoEstado = _textoEstado(estado);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -382,80 +488,100 @@ class _PedidosScreenState extends State<PedidosScreen> {
       builder: (context) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 16),
         child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(pedido.clienteNombre, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A2744))),
-            const SizedBox(height: 4),
-            Text('Entrega: ${pedido.fechaEntrega.day}/${pedido.fechaEntrega.month}/${pedido.fechaEntrega.year}', style: const TextStyle(color: Colors.grey)),
-            Text('Total: Gs. ${formatGs(pedido.total)} | Saldo: Gs. ${formatGs(pedido.saldo)}', style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: colorEstado.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-              child: Text(textoEstado, style: TextStyle(color: colorEstado, fontWeight: FontWeight.bold)),
-            ),
-            const Divider(height: 24),
-            ListTile(
-              leading: const Icon(Icons.edit, color: Color(0xFF1E88E5)),
-              title: const Text('Editar'),
-              onTap: () { Navigator.pop(context); _abrirFormulario(pedido: pedido); },
-            ),
-            ListTile(
-              leading: const Icon(Icons.print, color: Colors.purple),
-              title: const Text('Ticket'),
-              onTap: () { Navigator.pop(context); _imprimirPedido(pedido, 'ticket'); },
-            ),
-            ListTile(
-              leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
-              title: const Text('A4'),
-              onTap: () { Navigator.pop(context); _imprimirPedido(pedido, 'a4'); },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('Eliminar pedido', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Eliminar'),
-                    content: Text('¿Eliminar este pedido?'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                        onPressed: () async {
-                          await _db.eliminarPedido(pedido.id);
-                          Navigator.pop(context);
-                        },
-                        child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
-                      ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(pedido.clienteNombre, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A2744))),
+              const SizedBox(height: 4),
+              Text(
+                _esServicio 
+                  ? 'Fecha: ${pedido.fechaEntrega.day}/${pedido.fechaEntrega.month}/${pedido.fechaEntrega.year}${pedido.hora != null ? ' - ${pedido.hora}' : ''}'
+                  : 'Entrega: ${pedido.fechaEntrega.day}/${pedido.fechaEntrega.month}/${pedido.fechaEntrega.year}',
+                style: const TextStyle(color: Colors.grey)
+              ),
+              if (_esServicio && pedido.motivo != null && pedido.motivo!.isNotEmpty)
+                Text('Motivo: ${pedido.motivo}', style: const TextStyle(color: Colors.grey)),
+              Text('Total: Gs. ${formatGs(pedido.total)} | Saldo: Gs. ${formatGs(pedido.saldo)}', style: const TextStyle(color: Colors.grey)),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: colorEstado.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                child: Text(textoEstado, style: TextStyle(color: colorEstado, fontWeight: FontWeight.bold)),
+              ),
+              const Divider(height: 24),
+              
+              // Botón de compartir en WhatsApp
+              ListTile(
+                leading: const Icon(Icons.share, color: Colors.green),
+                title: const Text('Compartir por WhatsApp'),
+                onTap: () { Navigator.pop(context); _compartirPorWhatsApp(pedido); },
+              ),
+              
+              ListTile(
+                leading: const Icon(Icons.edit, color: Color(0xFF1E88E5)),
+                title: const Text('Editar'),
+                onTap: () { Navigator.pop(context); _abrirFormulario(pedido: pedido); },
+              ),
+              ListTile(
+                leading: const Icon(Icons.print, color: Colors.purple),
+                title: const Text('Ticket'),
+                onTap: () { Navigator.pop(context); _imprimirPedido(pedido, 'ticket'); },
+              ),
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                title: const Text('A4'),
+                onTap: () { Navigator.pop(context); _imprimirPedido(pedido, 'a4'); },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: Text(_esServicio ? 'Eliminar agendamiento' : 'Eliminar pedido', style: const TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Eliminar'),
+                      content: Text('¿Eliminar este ${_esServicio ? 'agendamiento' : 'pedido'}?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                          onPressed: () async {
+                            await _db.eliminarPedido(pedido.id);
+                            Navigator.pop(context);
+                          },
+                          child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const Text('Cambiar estado:', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A2744))),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: _esServicio 
+                  ? [
+                      _chipEstado(pedido.id, 'pendiente', 'A confirmar', Colors.orange, estado),
+                      _chipEstadoEntregado(pedido.id, context),
+                    ]
+                  : [
+                      _chipEstado(pedido.id, 'pendiente', 'Pendiente', Colors.orange, estado),
+                      _chipEstado(pedido.id, 'en_proceso', 'En proceso', Colors.blue, estado),
+                      _chipEstado(pedido.id, 'listo', 'Listo', Colors.green, estado),
+                      _chipEstadoEntregado(pedido.id, context),
                     ],
-                  ),
-                );
-              },
-            ),
-            const Text('Cambiar estado:', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A2744))),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                _chipEstado(pedido.id, 'pendiente', 'Pendiente', Colors.orange, estado),
-                _chipEstado(pedido.id, 'en_proceso', 'En proceso', Colors.blue, estado),
-                _chipEstado(pedido.id, 'listo', 'Listo', Colors.green, estado),
-                _chipEstadoEntregado(pedido.id, context),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -484,8 +610,8 @@ class _PedidosScreenState extends State<PedidosScreen> {
         final confirmar = await showDialog<bool>(
           context: ctx,
           builder: (context) => AlertDialog(
-            title: const Text('Marcar como entregado'),
-            content: const Text('El pedido se eliminará al marcarlo como entregado. ¿Continuar?'),
+            title: Text(_esServicio ? 'Marcar como realizado' : 'Marcar como entregado'),
+            content: Text('El ${_esServicio ? 'agendamiento' : 'pedido'} se eliminará al marcarlo como ${_esServicio ? 'realizado' : 'entregado'}. ¿Continuar?'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
               ElevatedButton(
@@ -504,19 +630,23 @@ class _PedidosScreenState extends State<PedidosScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-        child: const Text('Entregado', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
+        child: Text(_esServicio ? 'Realizado' : 'Entregado', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_cargando) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return SingleChildScrollView(
       padding: Responsive.pagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          pageHeader('PEDIDOS', context,
+          pageHeader(_esServicio ? 'AGENDA' : 'PEDIDOS', context,
             trailing: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: PersonalizacionService.instance.colorPrimario,
@@ -525,7 +655,7 @@ class _PedidosScreenState extends State<PedidosScreen> {
               ),
               onPressed: () => _abrirFormulario(),
               icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text('Nuevo Pedido', style: TextStyle(color: Colors.white)),
+              label: Text(_esServicio ? 'Nuevo Agendamiento' : 'Nuevo Pedido', style: const TextStyle(color: Colors.white)),
             ),
           ),
           const SizedBox(height: 24),
@@ -536,12 +666,12 @@ class _PedidosScreenState extends State<PedidosScreen> {
                 return Container(
                   padding: const EdgeInsets.all(40),
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                  child: const Center(child: Column(children: [
-                    Icon(Icons.assignment_outlined, size: 60, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text('No hay pedidos aún', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                    SizedBox(height: 8),
-                    Text('Toca "Nuevo Pedido" para agregar', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  child: Center(child: Column(children: [
+                    const Icon(Icons.assignment_outlined, size: 60, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    Text(_esServicio ? 'No hay agendamientos aún' : 'No hay pedidos aún', style: const TextStyle(color: Colors.grey, fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Text('Toca "Nuevo ${_esServicio ? 'Agendamiento' : 'Pedido'}" para agregar', style: const TextStyle(color: Colors.grey, fontSize: 13)),
                   ])),
                 );
               }
@@ -565,11 +695,13 @@ class _PedidosScreenState extends State<PedidosScreen> {
                           color: _colorEstado(p.estado).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(Icons.assignment, color: _colorEstado(p.estado), size: 22),
+                        child: Icon(_esServicio ? Icons.calendar_month : Icons.assignment, color: _colorEstado(p.estado), size: 22),
                       ),
                       title: Row(
                         children: [
-                          Text(p.clienteNombre, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Expanded(
+                            child: Text(p.clienteNombre, style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                          ),
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -579,24 +711,28 @@ class _PedidosScreenState extends State<PedidosScreen> {
                             ),
                             child: Text(_textoEstado(p.estado), style: TextStyle(color: _colorEstado(p.estado), fontSize: 11)),
                           ),
-                          if (vencido) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                              child: const Text('Vencido', style: TextStyle(color: Colors.red, fontSize: 11)),
-                            ),
-                          ],
                         ],
                       ),
-                      subtitle: Text('${p.items.length} item(s) | Saldo: Gs. ${formatGs(p.saldo)}', style: const TextStyle(fontSize: 12)),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 4),
+                          if (_esServicio && p.motivo != null && p.motivo!.isNotEmpty)
+                            Text(p.motivo!, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text('${p.items.length} item(s) | Saldo: Gs. ${formatGs(p.saldo)}', style: const TextStyle(fontSize: 12)),
+                        ],
+                      ),
                       trailing: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text('Gs. ${formatGs(p.total)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
-                          Text('${p.fechaEntrega.day}/${p.fechaEntrega.month}/${p.fechaEntrega.year}',
-                              style: TextStyle(fontSize: 11, color: vencido ? Colors.red : Colors.grey)),
+                          Text(
+                            _esServicio 
+                              ? '${p.fechaEntrega.day}/${p.fechaEntrega.month}${p.hora != null ? ' - ${p.hora}' : ''}'
+                              : '${p.fechaEntrega.day}/${p.fechaEntrega.month}/${p.fechaEntrega.year}',
+                            style: TextStyle(fontSize: 11, color: vencido ? Colors.red : Colors.grey)
+                          ),
                         ],
                       ),
                       onTap: () => _mostrarOpciones(p),
