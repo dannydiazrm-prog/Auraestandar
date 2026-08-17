@@ -123,6 +123,47 @@ class _AjustesScreenState extends State<AjustesScreen> {
     }
   }
 
+  void _mostrarAcercaDe() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          contentPadding: const EdgeInsets.all(24),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: PersonalizacionService.instance.colorPrimario.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.info_outline, color: PersonalizacionService.instance.colorPrimario, size: 40),
+              ),
+              const SizedBox(height: 24),
+              const Text('Aura estándar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text('Versión 1.0', style: TextStyle(fontSize: 15, color: Colors.grey)),
+              const SizedBox(height: 4),
+              const Text('Creado por JP Labs', style: TextStyle(fontSize: 15, color: Colors.grey)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                foregroundColor: PersonalizacionService.instance.colorPrimario,
+                textStyle: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              child: const Text('CERRAR'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -203,22 +244,37 @@ class _AjustesScreenState extends State<AjustesScreen> {
           ),
           const SizedBox(height: 16),
           _seccion(
-            titulo: 'Soporte y Acerca de',
-            icono: Icons.help_outline,
+            titulo: 'Soporte',
+            icono: Icons.headset_mic_outlined,
             children: [
-              const Text('Versión 1.0.0', style: TextStyle(color: Colors.grey, fontSize: 12)),
-              const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: _abrirWhatsapp,
-                  icon: const Icon(Icons.support_agent),
-                  label: const Text('Contactar soporte técnico'),
+                  icon: const Icon(Icons.chat_bubble_outline),
+                  label: const Text('Contactar por WhatsApp'),
                   style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          _seccion(
+            titulo: 'Acerca de',
+            icono: Icons.info_outline,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _mostrarAcercaDe,
+                  icon: const Icon(Icons.bolt),
+                  label: const Text('Ver información de la app'),
+                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
         ],
       ),
     );

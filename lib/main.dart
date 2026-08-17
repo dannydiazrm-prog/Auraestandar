@@ -20,6 +20,7 @@ import 'screens/reporte_inventario_screen.dart';
 import 'screens/finanzas_screen.dart';
 import 'screens/ajustes_screen.dart';
 import 'screens/pedidos_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'dart:io';
 import 'services/personalizacion_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -52,6 +53,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   bool? _activada;
+  bool? _onboardingCompletado;
 
   @override
   void initState() {
@@ -63,15 +65,35 @@ class _MyAppState extends State<MyApp> {
   Future<void> _cargarEstado() async {
     final prefs = await SharedPreferences.getInstance();
     final activada = prefs.getBool('app_activada') ?? false;
-    if (mounted) setState(() => _activada = activada);
+    final subCat = prefs.getString('sub_categoria');
+    if (mounted) {
+      setState(() {
+        _activada = activada;
+        _onboardingCompletado = subCat != null;
+      });
+    }
   }
 
   void _marcarActivada() {
-    setState(() => _activada = true);
+    setState(() {
+      _activada = true;
+      _onboardingCompletado = false;
+    });
   }
 
-  void _marcarDesactivada() {
-    setState(() => _activada = false);
+  void _completarOnboarding() {
+    setState(() => _onboardingCompletado = true);
+  }
+
+  void _marcarDesactivada() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('sub_categoria');
+    await prefs.remove('tipo_negocio');
+    await prefs.remove('app_activada');
+    setState(() {
+      _activada = false;
+      _onboardingCompletado = false;
+    });
   }
 
   @override
@@ -96,11 +118,13 @@ class _MyAppState extends State<MyApp> {
             ),
             useMaterial3: true,
           ),
-          home: _activada == null
+          home: _activada == null || _onboardingCompletado == null
               ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-              : _activada == true
-                  ? MainLayout(onCerrarSesion: _marcarDesactivada)
-                  : LoginScreen(onActivado: _marcarActivada),
+              : _activada == false
+                  ? LoginScreen(onActivado: _marcarActivada)
+                  : _onboardingCompletado == false
+                      ? OnboardingScreen(onCompletado: _completarOnboarding)
+                      : MainLayout(onCerrarSesion: _marcarDesactivada),
         );
       },
     );
@@ -119,8 +143,9 @@ class _MainLayoutState extends State<MainLayout> {
   String _paginaActual = 'Dashboard';
   bool _sidebarVisible = true;
 
-  final Map<String, List<String>> _submenus = {
-    'Ventas': ['Nueva Venta', 'Historial de Ventas', 'Pedidos', 'Caja', 'Clientes'],
+    final Map<String, List<String>> _submenus = {
+    'Ventas': ['Nueva Venta', 'Historial de Ventas', 'Caja', 'Clientes'], 
+    'Pedidos': [],
     'Inventario': ['Productos', 'Alertas de Stock'],
     'Reportes': ['Ventas', 'Inventario'],
     'Finanzas': [],
@@ -130,6 +155,7 @@ class _MainLayoutState extends State<MainLayout> {
   final Map<String, IconData> _iconos = {
     'Dashboard': Icons.dashboard,
     'Ventas': Icons.receipt,
+    'Pedidos': Icons.assignment, 
     'Inventario': Icons.inventory,
     'Reportes': Icons.bar_chart,
     'Finanzas': Icons.account_balance_wallet,

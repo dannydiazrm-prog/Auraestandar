@@ -26,16 +26,13 @@ class PersonalizacionService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> guardarColor(Color color) async {
-    final hsl = HSLColor.fromColor(color);
-    final luminosidadSegura = hsl.lightness.clamp(0.25, 0.75);
-    final colorSeguro = hsl.withLightness(luminosidadSegura).toColor();
-
-    colorPrimario = colorSeguro;
+    Future<void> guardarColor(Color color) async {
+    colorPrimario = color;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('color_primario', colorSeguro.value);
+    await prefs.setInt('color_primario', color.value);
     notifyListeners();
   }
+
 
   Future<void> guardarLogoPath(String path) async {
     logoPath = path;
