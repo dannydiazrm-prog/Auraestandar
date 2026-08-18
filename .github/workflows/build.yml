@@ -40,8 +40,7 @@ jobs:
       - run: dart run flutter_launcher_icons
       
       - name: Compilar Windows Release
-        # Se añade -- --cmake-args="-DCMAKE_POLICY_VERSION_MINIMUM=3.5" para corregir el error de Firebase SDK
-        run: flutter build windows --release -- --cmake-args="-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+        run: flutter build windows --release
       
       - name: Instalar NSIS
         run: choco install nsis -y
