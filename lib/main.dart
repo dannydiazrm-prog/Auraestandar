@@ -21,6 +21,7 @@ import 'screens/finanzas_screen.dart';
 import 'screens/ajustes_screen.dart';
 import 'screens/pedidos_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'screens/terminos_screen.dart';
 import 'dart:io';
 import 'services/personalizacion_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -52,6 +53,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  bool? _terminosAceptados;
   bool? _activada;
   bool? _onboardingCompletado;
 
@@ -62,17 +64,21 @@ class _MyAppState extends State<MyApp> {
     PersonalizacionService.instance.cargar();
   }
 
-  Future<void> _cargarEstado() async {
+
+    Future<void> _cargarEstado() async {
     final prefs = await SharedPreferences.getInstance();
+    final terminos = prefs.getBool('terminos_aceptados') ?? false;
     final activada = prefs.getBool('app_activada') ?? false;
     final subCat = prefs.getString('sub_categoria');
     if (mounted) {
       setState(() {
+        _terminosAceptados = terminos;
         _activada = activada;
         _onboardingCompletado = subCat != null;
       });
     }
   }
+
 
   void _marcarActivada() {
     setState(() {
@@ -118,18 +124,21 @@ class _MyAppState extends State<MyApp> {
             ),
             useMaterial3: true,
           ),
-          home: _activada == null || _onboardingCompletado == null
+                    home: _terminosAceptados == null || _activada == null || _onboardingCompletado == null
               ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-              : _activada == false
-                  ? LoginScreen(onActivado: _marcarActivada)
-                  : _onboardingCompletado == false
-                      ? OnboardingScreen(onCompletado: _completarOnboarding)
-                      : MainLayout(onCerrarSesion: _marcarDesactivada),
+              : _terminosAceptados == false
+                  ? TerminosScreen(siguientePantalla: LoginScreen(onActivado: _marcarActivada))
+                  : _activada == false
+                      ? LoginScreen(onActivado: _marcarActivada)
+                      : _onboardingCompletado == false
+                          ? OnboardingScreen(onCompletado: _completarOnboarding)
+                          : MainLayout(onCerrarSesion: _marcarDesactivada),
         );
       },
     );
   }
 }
+
 
 class MainLayout extends StatefulWidget {
   final VoidCallback onCerrarSesion;
@@ -155,7 +164,7 @@ class _MainLayoutState extends State<MainLayout> {
   final Map<String, IconData> _iconos = {
     'Dashboard': Icons.dashboard,
     'Ventas': Icons.receipt,
-    'Pedidos/Agenda': Icons.assignment, 
+    'Pedidos': Icons.assignment,
     'Inventario': Icons.inventory,
     'Reportes': Icons.bar_chart,
     'Finanzas': Icons.account_balance_wallet,

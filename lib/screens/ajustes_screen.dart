@@ -9,6 +9,12 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/firestore_service.dart';
 import '../services/personalizacion_service.dart';
 
+// --- NUEVAS IMPORTACIONES PARA IMPORTAR/EXPORTAR ---
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart' as path_pkg;
+import 'package:share_plus/share_plus.dart';
+import 'package:file_picker/file_picker.dart';
+
 class AjustesScreen extends StatefulWidget {
   const AjustesScreen({super.key});
 
@@ -100,7 +106,7 @@ class _AjustesScreenState extends State<AjustesScreen> {
     }
   }
 
-void _confirmarRestaurar() {
+  void _confirmarRestaurar() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -133,7 +139,14 @@ void _confirmarRestaurar() {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom +
+                MediaQuery.of(context).padding.bottom +
+                24,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -237,6 +250,109 @@ void _confirmarRestaurar() {
     );
   }
 
+  // =====================================================================
+  // LÓGICA DE BACKUP: EXPORTAR E IMPORTAR
+  // =====================================================================
+
+  Future<void> _exportarDatos() async {
+    try {
+      final dbFolder = await getDatabasesPath();
+      final dbPath = path_pkg.join(dbFolder, 'aura_estandar.db');
+      final file = File(dbPath);
+
+      if (await file.exists()) {
+        // Share permite enviar el archivo por WhatsApp, guardarlo en Drive o Descargas
+        await Share.shareXFiles(
+          [XFile(dbPath)],
+          text: 'Copia de seguridad - Aura Estándar',
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se encontró la base de datos.'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al exportar: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _importarDatos() async {
+    try {
+      // Abre el explorador de archivos para que el usuario elija el backup
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.any, 
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final backupPath = result.files.single.path!;
+        
+        // Validación de seguridad para que no suban cualquier archivo
+        if (!backupPath.endsWith('.db')) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('El archivo debe ser una base de datos (.db)'), backgroundColor: Colors.red),
+          );
+          return;
+        }
+
+        // Advertencia crítica antes de destruir los datos actuales
+        if (!mounted) return;
+        final confirmar = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('⚠️ Advertencia Crítica'),
+            content: const Text('Esto reemplazará TODOS tus datos actuales (productos, ventas, clientes) por los del archivo importado. Esta acción NO se puede deshacer. ¿Continuar?'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Sí, reemplazar datos', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmar == true) {
+          final dbFolder = await getDatabasesPath();
+          final dbPath = path_pkg.join(dbFolder, 'aura_estandar.db');
+          
+          // Reemplaza el archivo físico
+          final backupFile = File(backupPath);
+          await backupFile.copy(dbPath);
+
+          if (!mounted) return;
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Text('¡Importación Exitosa!'),
+              content: const Text('Los datos se han restaurado correctamente. Es necesario cerrar la aplicación para aplicar los cambios.'),
+              actions: [
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  onPressed: () => exit(0), // Cierra la app forzadamente para reiniciar limpio
+                  child: const Text('Cerrar App', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al importar: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  // =====================================================================
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -315,6 +431,51 @@ void _confirmarRestaurar() {
               ),
             ],
           ),
+          
+          const SizedBox(height: 16),
+          
+          // --- NUEVA SECCIÓN: COPIA DE SEGURIDAD ---
+          _seccion(
+            titulo: 'Copia de Seguridad',
+            icono: Icons.save_outlined,
+            children: [
+              const Text(
+                'Guardá un respaldo de todos tus datos (productos, ventas, clientes) o restauralos si cambiaste de celular.',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _exportarDatos,
+                      icon: const Icon(Icons.upload_file),
+                      label: const Text('Exportar'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _importarDatos,
+                      icon: const Icon(Icons.download),
+                      label: const Text('Importar'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        side: const BorderSide(color: Colors.redAccent, width: 0.5), // Un sutil borde rojo para que sepan que es delicado
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          // ------------------------------------------
+
           const SizedBox(height: 16),
           _seccion(
             titulo: 'Restaurar',
