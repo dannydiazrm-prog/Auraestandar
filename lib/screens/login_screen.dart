@@ -37,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final docRef = FirebaseFirestore.instance
           .collection('codigos_activacion')
           .doc(codigo);
-      final doc = await docRef.get();
+      final doc = await docRef.get().timeout(const Duration(seconds: 10));
 
       if (!doc.exists) {
         setState(() => _error = 'Código inválido');
@@ -64,15 +64,15 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      await docRef.update({'usado': true});
+      await docRef.update({'usado': true}).timeout(const Duration(seconds: 10));
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('app_activada', true);
 
       if (!mounted) return;
       widget.onActivado();
-    } catch (e) {
-      setState(() => _error = 'Error al validar el código. Intenta de nuevo.');
+   } catch (e) {
+      setState(() => _error = 'Sin conexión a internet. Verifica tu WiFi/datos e intenta de nuevo.');
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
