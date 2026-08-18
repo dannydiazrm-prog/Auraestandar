@@ -44,8 +44,8 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      final data = doc.data()!;
-      final bool usado = data['usado'] ?? true;
+            final data = doc.data()!;
+      final bool usado = data['usado'] ?? false;
       final Timestamp? expiraTimestamp = data['creado_en'];
 
       if (usado) {
