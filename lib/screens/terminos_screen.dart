@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../services/preferencias_service.dart';
-import '../main.dart'; // Asegurate de que primaryColor esté accesible aquí
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/personalizacion_service.dart';
 
 class TerminosScreen extends StatefulWidget {
   final Widget siguientePantalla;
@@ -16,39 +16,38 @@ class _TerminosScreenState extends State<TerminosScreen> {
   bool _aceptaTerminos = false;
 
   Future<void> _aceptar() async {
-    // 1. Guardar en preferencias que aceptó
-    await PreferenciasService.marcarTerminosAceptados(); // Asegurate de tener este método en tu PreferenciasService
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('terminos_aceptados', true);
     
     if (!mounted) return;
     
-    // 2. Navegar usando pushReplacement para que no pueda volver atrás
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => widget.siguientePantalla),
     );
   }
 
   void _rechazar() {
-    // Cierra la aplicación completamente
     SystemNavigator.pop();
   }
 
   @override
   Widget build(BuildContext context) {
+    final colorPrimario = PersonalizacionService.instance.colorPrimario;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            // ENCABEZADO
             Container(
               padding: const EdgeInsets.all(24.0),
               width: double.infinity,
-              color: primaryColor.withOpacity(0.1),
-              child: const Column(
+              color: colorPrimario.withOpacity(0.1),
+              child: Column(
                 children: [
-                  Icon(Icons.gavel_rounded, size: 48, color: Colors.black87),
-                  SizedBox(height: 12),
-                  Text(
+                  Icon(Icons.gavel_rounded, size: 48, color: colorPrimario),
+                  const SizedBox(height: 12),
+                  const Text(
                     'Términos y Condiciones',
                     style: TextStyle(
                       fontSize: 22,
@@ -56,21 +55,19 @@ class _TerminosScreenState extends State<TerminosScreen> {
                       color: Colors.black87,
                     ),
                   ),
-                  SizedBox(height: 8),
-                  Text(
+                  const SizedBox(height: 8),
+                  const Text(
                     'Por favor lee atentamente antes de continuar.',
                     style: TextStyle(color: Colors.black54),
                   ),
                 ],
               ),
             ),
-
-            // CUERPO DEL TEXTO LEGAL COMPLETO (Tu texto exacto)
             Expanded(
               child: Scrollbar(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(24.0),
-                  child: Text(
+                  child: const Text(
                     '''TÉRMINOS Y CONDICIONES DE USO
 
 Bienvenido a Aura Estandar (en adelante , "La aplicacion"). Antes de utilizar la Aplicación, lea detenidamente los presentes Términos y Condiciones de Uso (en adelante, "Términos"). Al descargar, instalar o utilizar la Aplicación, usted acepta de forma expresa, automática y sin reservas todos los puntos aquí establecidos. Si no está de acuerdo con estos Términos, deberá abstenerse de instalar y utilizar la Aplicación.
@@ -88,7 +85,7 @@ Una vez adquirida, descargada o instalada la Aplicación, el usuario asume la to
 3. RIESGO DE PÉRDIDA DE DATOS Y ALMACENAMIENTO LOCAL
 La Aplicación procesa, gestiona y almacena la información financiera de manera estrictamente local en el dispositivo del usuario. 
 • El desarrollador no realiza copias de seguridad automáticas en la nube, ni almacena la información del usuario en servidores externos, garantizando así la privacidad absoluta de sus números.
-• Como consecuencia directa de este modelo de almacenamiento, existe un riesgo inherente de pérdida total e irreversible de datos en casos de: avería, daño o robo del dispositivo móvil; restauración de fábrica del sistema operativo; desinstalación voluntaria o involuntaria de la Aplicación; o borrado manual de la caché/datos del sistema por parte del usuario.
+• Como consecuencia directa de هذا modelo de almacenamiento, existe un riesgo inherente de pérdida total e irreversible de datos en casos de: avería, daño o robo del dispositivo móvil; restauración de fábrica del sistema operativo; desinstalación voluntaria o involuntaria de la Aplicación; o borrado manual de la caché/datos del sistema por parte del usuario.
 • El desarrollador queda completamente exonerado de cualquier responsabilidad por la pérdida de datos, historial de ventas, balances o métricas, siendo obligación del usuario tomar las previsiones o respaldos necesarios si el sistema operativo lo permite.
 
 4. DERECHOS DEL DESARROLLADOR Y PROPIEDAD INTELECTUAL
@@ -98,11 +95,11 @@ El desarrollador retiene de forma exclusiva todos los derechos de propiedad inte
 • Actualizaciones: El desarrollador se reserva el derecho de modificar, actualizar, suspender o discontinuar funciones, interfaces o características de la Aplicación en cualquier momento, sin que esto genere derecho a compensación alguna para el usuario.
 
 5. EXCLUSIÓN DE GARANTÍAS Y LIMITACIÓN DE RESPONSABILIDAD
-La Aplicación se proporciona "tal cual" y "según disponibilidad", sin garantías de ningún tipo, ya sean expresas o implistemas. El desarrollador no garantiza que la Aplicación sea absolutamente infalible, libre de bugs tipográficos o de redondeo matemático menor, ni que funcione de manera ininterrumpida en todos los modelos de dispositivos móviles del mercado. Bajo ninguna circunstancia el desarrollador será responsable por daños directos, indirectos, incidentales, lucro cesante o pérdidas financieras tangibles o intangibles que el usuario sufra como consecuencia directa o indirecta del uso o la imposibilidad de uso de la Aplicación.
+La Aplicación se proporciona "tal cual" y "según disponibilidad", sin garantías de ningún tipo, ya sean expresas o implícitas. El desarrollador no garantiza que la Aplicación sea absolutamente infalible, libre de bugs tipográficos o de redondeo matemático menor, ni que funcione de manera ininterrumpida en todos los modelos de dispositivos móviles del mercado. Bajo ninguna circunstancia el desarrollador será responsable por daños directos, indirectos, incidentales, lucro cesante o pérdidas financieras tangibles o intangibles que el usuario sufra como consecuencia directa o indirecta del uso o la imposibilidad de uso de la Aplicación.
 
 6. MODIFICACIONES A LOS TÉRMINOS
 El desarrollador se reserva el derecho de actualizar o modificar estos Términos y Condiciones en cualquier momento. El uso continuado de la Aplicación tras dichas modificaciones constituirá la aceptación de los nuevos Términos.''',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       height: 1.5,
                       color: Colors.black87,
@@ -112,8 +109,6 @@ El desarrollador se reserva el derecho de actualizar o modificar estos Términos
                 ),
               ),
             ),
-
-            // SECCIÓN DE ACEPTACIÓN
             Container(
               padding: const EdgeInsets.all(16.0),
               decoration: BoxDecoration(
@@ -132,7 +127,7 @@ El desarrollador se reserva el derecho de actualizar o modificar estos Términos
                     children: [
                       Checkbox(
                         value: _aceptaTerminos,
-                        activeColor: primaryColor,
+                        activeColor: colorPrimario,
                         onChanged: (val) {
                           setState(() {
                             _aceptaTerminos = val ?? false;
@@ -166,7 +161,7 @@ El desarrollador se reserva el derecho de actualizar o modificar estos Términos
                         child: ElevatedButton(
                           onPressed: _aceptaTerminos ? _aceptar : null,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor,
+                            backgroundColor: colorPrimario,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             foregroundColor: Colors.white,
                           ),
