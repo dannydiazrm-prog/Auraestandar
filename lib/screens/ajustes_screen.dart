@@ -131,10 +131,11 @@ class _AjustesScreenState extends State<AjustesScreen> {
     );
   }
   
-  Future<void> _seleccionarColor() async {
+    Future<void> _seleccionarColor() async {
     Color colorSeleccionado = PersonalizacionService.instance.colorPrimario;
     final resultado = await showModalBottomSheet<Color>(
       context: context,
+      isScrollControlled: true, // <--- 1. ESTO PERMITE QUE EL MODAL CREZCA MÁS DEL 50%
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (context) => StatefulBuilder(
@@ -147,57 +148,59 @@ class _AjustesScreenState extends State<AjustesScreen> {
                 MediaQuery.of(context).padding.bottom +
                 24,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
-              const SizedBox(height: 24),
-              const Text('Seleccionar color principal', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                decoration: BoxDecoration(
-                  color: colorSeleccionado,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Icon(Icons.storefront, color: PersonalizacionService.instance.colorTextoPara(colorSeleccionado)),
-                    const SizedBox(height: 6),
-                    Text(
-                      PersonalizacionService.instance.nombreComercio,
-                      style: TextStyle(
-                        color: PersonalizacionService.instance.colorTextoPara(colorSeleccionado),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              ColorPicker(
-                pickerColor: colorSeleccionado,
-                onColorChanged: (c) => setModalState(() => colorSeleccionado = c),
-                enableAlpha: false,
-                labelTypes: const [],
-                pickerAreaHeightPercent: 0.5,
-                pickerAreaBorderRadius: BorderRadius.circular(12),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colorSeleccionado,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: SingleChildScrollView( // <--- 2. ESTO EVITA QUE SE CORTE EN PANTALLAS PEQUEÑAS
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+                const SizedBox(height: 24),
+                const Text('Seleccionar color principal', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  decoration: BoxDecoration(
+                    color: colorSeleccionado,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  onPressed: () => Navigator.pop(context, colorSeleccionado),
-                  child: Text('APLICAR', style: TextStyle(color: PersonalizacionService.instance.colorTextoPara(colorSeleccionado), fontWeight: FontWeight.w700)),
+                  child: Column(
+                    children: [
+                      Icon(Icons.storefront, color: PersonalizacionService.instance.colorTextoPara(colorSeleccionado)),
+                      const SizedBox(height: 6),
+                      Text(
+                        PersonalizacionService.instance.nombreComercio,
+                        style: TextStyle(
+                          color: PersonalizacionService.instance.colorTextoPara(colorSeleccionado),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                ColorPicker(
+                  pickerColor: colorSeleccionado,
+                  onColorChanged: (c) => setModalState(() => colorSeleccionado = c),
+                  enableAlpha: false,
+                  labelTypes: const [],
+                  pickerAreaHeightPercent: 0.5,
+                  pickerAreaBorderRadius: BorderRadius.circular(12),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorSeleccionado,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => Navigator.pop(context, colorSeleccionado),
+                    child: Text('APLICAR', style: TextStyle(color: PersonalizacionService.instance.colorTextoPara(colorSeleccionado), fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

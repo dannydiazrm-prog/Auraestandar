@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/personalizacion_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'onboarding_screen.dart'; 
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onActivado;
@@ -44,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-            final data = doc.data()!;
+      final data = doc.data()!;
       final bool usado = data['usado'] ?? false;
       final Timestamp? expiraTimestamp = data['creado_en'];
 
@@ -70,7 +71,20 @@ class _LoginScreenState extends State<LoginScreen> {
       await prefs.setBool('app_activada', true);
 
       if (!mounted) return;
+      
+      // Llamamos al callback original por si lo estás usando en otro lado
       widget.onActivado();
+
+      // Navegación en tiempo real a la pantalla de Onboarding
+      // y eliminación de todo el historial de pantallas anterior.
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const OnboardingScreen(),
+        ),
+        (Route<dynamic> route) => false,
+      );
+
    } catch (e) {
       setState(() => _error = 'Sin conexión a internet. Verifica tu WiFi/datos e intenta de nuevo.');
     } finally {

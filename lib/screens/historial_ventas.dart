@@ -357,7 +357,7 @@ class _DetalleVenta extends StatelessWidget {
                   gasto['cantidad'],
                 );
               }
-              Navigator.pop(context);
+              Navigator.pop(context); // Cierra el bottom sheet
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Venta anulada y stock restaurado'),
@@ -371,12 +371,17 @@ class _DetalleVenta extends StatelessWidget {
       ),
     );
   }
-
+  
   @override
   Widget build(BuildContext context) {
     final fecha = DateTime.parse(venta['fecha']);
     final items = venta['items'] as List<dynamic>;
     final anulada = venta['estado'] == 'anulada';
+
+    // (Opcional si necesitas usarlo o mostrarlo) 
+    final nombreClienteLimpio = (venta['clienteNombre'] ?? 'Cliente').toString().replaceAll(' ', '_');
+    final nombreBasePdf = '${nombreClienteLimpio}_${fecha.day}-${fecha.month}-${fecha.year}';
+
 
     return Container(
       decoration: const BoxDecoration(
@@ -500,7 +505,7 @@ class _DetalleVenta extends StatelessWidget {
               ),
             )),
             const SizedBox(height: 16),
-// Totales
+            // Totales
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -570,7 +575,7 @@ class _DetalleVenta extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-// Botones
+                        // Botones
             Row(
               children: [
                 Expanded(
@@ -583,11 +588,19 @@ class _DetalleVenta extends StatelessWidget {
                       ),
                     ),
                     onPressed: () async {
-                      final ajustes = await AjustesService.getAjustes();
-                      await TicketService.imprimirA4(
-                        venta: venta,
-                        ajustes: ajustes,
-                      );
+                      try {
+                        final ajustes = await AjustesService.getAjustes();
+                        await TicketService.imprimirA4(
+                          venta: venta,
+                          ajustes: ajustes,
+                        );
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('No se pudo abrir la vista de impresión A4.')),
+                          );
+                        }
+                      }
                     },
                     icon: const Icon(Icons.print, color: Colors.white),
                     label: const Text('A4', style: TextStyle(color: Colors.white)),
@@ -604,11 +617,19 @@ class _DetalleVenta extends StatelessWidget {
                       ),
                     ),
                     onPressed: () async {
-                      final ajustes = await AjustesService.getAjustes();
-                      await TicketService.imprimirTicket(
-                        venta: venta,
-                        ajustes: ajustes,
-                      );
+                      try {
+                        final ajustes = await AjustesService.getAjustes();
+                        await TicketService.imprimirTicket(
+                          venta: venta,
+                          ajustes: ajustes,
+                        );
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('No se pudo abrir la vista de impresión del Ticket.')),
+                          );
+                        }
+                      }
                     },
                     icon: const Icon(Icons.receipt, color: Colors.white),
                     label: const Text('Ticket', style: TextStyle(color: Colors.white)),

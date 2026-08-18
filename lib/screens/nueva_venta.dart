@@ -211,13 +211,16 @@ void _mostrarMontoLibre(Producto producto) {
     });
   }
 
-  void _finalizarVenta() async {
+    void _finalizarVenta() async {
     if (_items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Agrega al menos un producto')),
       );
       return;
     }
+
+    // 1. Guardamos el estado del teclado antes de limpiar
+    FocusScope.of(context).unfocus();
 
     final venta = Venta(
       clienteId: _clienteSeleccionado.id,
@@ -228,85 +231,104 @@ void _mostrarMontoLibre(Producto producto) {
       iva10: _iva10,
       total: _total,
       fecha: DateTime.now(),
+      // Si está vacío, asume que pagó el total exacto:
       montoPagado: double.tryParse(_montoPagadoController.text.replaceAll(".", "")) ?? _total,
       vuelto: _vuelto > 0 ? _vuelto : 0,
     );
 
-    final gastosAutomaticos = await _db.guardarVenta(venta);
-    for (final gasto in gastosAutomaticos) {
-      await _db.agregarGasto({
-        'fecha': DateTime.now().toIso8601String(),
-        'categoria': 'Costo de Venta',
-        'descripcion': '${gasto['nombre']} x${gasto['cantidad']}',
-        'monto': gasto['costoTotal'],
-        'automatico': true,
-      });
-    }
-    FocusScope.of(context).unfocus();
-    await Future.delayed(const Duration(milliseconds: 300));
+    try {
+      // 2. Operaciones de Base de Datos
+      final gastosAutomaticos = await _db.guardarVenta(venta);
+      for (final gasto in gastosAutomaticos) {
+        await _db.agregarGasto({
+          'fecha': DateTime.now().toIso8601String(),
+          'categoria': 'Costo de Venta',
+          'descripcion': '${gasto['nombre']} x${gasto['cantidad']}',
+          'monto': gasto['costoTotal'],
+          'automatico': true,
+        });
+      }
 
-    final ventaMap = venta.toMap();
-    ventaMap['clienteNombre'] = _clienteSeleccionado.nombre;
-    ventaMap['clienteRucCi'] = _clienteSeleccionado.rucCi;
+      // 3. Cargamos los ajustes ANTES de borrar los datos de la pantalla
+      final ajustes = await AjustesService.getAjustes();
 
-    setState(() {
-      _items = [];
-      _clienteSeleccionado = Cliente.mostrador();
-      _rucCiController.clear();
-      _montoPagadoController.clear();
-    });
+      // 4. Verificación de seguridad (Crucial para que no falle el showDialog)
+      if (!mounted) return;
 
-    final ajustes = await AjustesService.getAjustes();
+      final ventaMap = venta.toMap();
+      ventaMap['clienteNombre'] = _clienteSeleccionado.nombre;
+      ventaMap['clienteRucCi'] = _clienteSeleccionado.rucCi;
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            SizedBox(width: 8),
-            Text('Venta guardada'),
+      // 5. Mostramos el diálogo de éxito PRIMERO
+      showDialog(
+        context: context,
+        barrierDismissible: false, // Evita que se cierre tocando afuera sin querer
+        builder: (context) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green),
+              SizedBox(width: 8),
+              Text('Venta guardada'),
+            ],
+          ),
+          content: const Text('¿Desea imprimir el comprobante?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Ahora no'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1A2744),
+              ),
+              onPressed: () async {
+                Navigator.pop(context);
+                await TicketService.imprimirA4(
+                  venta: ventaMap,
+                  ajustes: ajustes,
+                );
+              },
+              icon: const Icon(Icons.print, color: Colors.white),
+              label: const Text('A4', style: TextStyle(color: Colors.white)),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: PersonalizacionService.instance.colorPrimario,
+              ),
+              onPressed: () async {
+                Navigator.pop(context);
+                await TicketService.imprimirTicket(
+                  venta: ventaMap,
+                  ajustes: ajustes,
+                );
+              },
+              icon: const Icon(Icons.receipt, color: Colors.white),
+              label: const Text('Ticket', style: TextStyle(color: Colors.white)),
+            ),
           ],
         ),
-        content: const Text('¿Desea imprimir el comprobante?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Ahora no'),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A2744),
-            ),
-            onPressed: () async {
-              Navigator.pop(context);
-              await TicketService.imprimirA4(
-                venta: ventaMap,
-                ajustes: ajustes,
-              );
-            },
-            icon: const Icon(Icons.print, color: Colors.white),
-            label: const Text('A4', style: TextStyle(color: Colors.white)),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: PersonalizacionService.instance.colorPrimario,
-            ),
-            onPressed: () async {
-              Navigator.pop(context);
-              await TicketService.imprimirTicket(
-                venta: ventaMap,
-                ajustes: ajustes,
-              );
-            },
-            icon: const Icon(Icons.receipt, color: Colors.white),
-            label: const Text('Ticket', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
+      );
 
+      // 6. Finalmente, reseteamos la pantalla para la siguiente venta
+      setState(() {
+        _items = [];
+        _clienteSeleccionado = Cliente.mostrador();
+        _rucCiController.clear();
+        _montoPagadoController.clear();
+      });
+
+    } catch (e) {
+      // Por si algo falla en la BD, que te avise en lugar de quedarse mudo
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error al guardar la venta.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  
   @override
   Widget build(BuildContext context) {
     final esMostrador = _clienteSeleccionado.rucCi == '1';
