@@ -3,7 +3,7 @@ import "../widgets/page_header.dart";
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/database_service.dart';
-import 'services/personalizacion_service.dart';
+import '../services/personalizacion_service.dart';
 
 class ReporteVentasScreen extends StatefulWidget {
   const ReporteVentasScreen({super.key});
