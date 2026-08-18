@@ -41,9 +41,22 @@ class PersonalizacionService extends ChangeNotifier {
     notifyListeners();
   }
   
-  Color get colorTexto {
-    return colorPrimario.computeLuminance() > 0.6
+  Color colorTextoPara(Color color) {
+    return color.computeLuminance() > 0.6
         ? const Color(0xFF1A2744)
         : Colors.white;
+  }
+
+  Color get colorTexto => colorTextoPara(colorPrimario);
+  
+  Future<void> restaurarValoresPorDefecto() async {
+    nombreComercio = 'Aura Estándar';
+    colorPrimario = const Color(0xFF29B6F6);
+    logoPath = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('nombre_comercio');
+    await prefs.remove('color_primario');
+    await prefs.remove('logo_path');
+    notifyListeners();
   }
 }

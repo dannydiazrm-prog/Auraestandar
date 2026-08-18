@@ -2,6 +2,7 @@ import '../widgets/responsive.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'personalizacion_service.dart';
 
 class TicketService {
   static Future<void> imprimirA4({
@@ -24,7 +25,7 @@ class TicketService {
               child: pw.Column(
                 children: [
                   pw.Text(
-                    ajustes['nombreEmpresa'] ?? 'Sin nombre',
+                    PersonalizacionService.instance.nombreComercio,
                     style: pw.TextStyle(
                       fontSize: 22,
                       fontWeight: pw.FontWeight.bold,
@@ -185,7 +186,7 @@ class TicketService {
           crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
             pw.Text(
-              ajustes['nombreEmpresa'] ?? 'Sin nombre',
+              PersonalizacionService.instance.nombreComercio,
               style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
               textAlign: pw.TextAlign.center,
             ),

@@ -234,7 +234,7 @@ void _mostrarMontoLibre(Producto producto) {
 
     final gastosAutomaticos = await _db.guardarVenta(venta);
     for (final gasto in gastosAutomaticos) {
-      await _service.agregarGasto({
+      await _db.agregarGasto({
         'fecha': DateTime.now().toIso8601String(),
         'categoria': 'Costo de Venta',
         'descripcion': '${gasto['nombre']} x${gasto['cantidad']}',

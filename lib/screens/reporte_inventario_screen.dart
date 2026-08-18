@@ -229,7 +229,7 @@ class _ReporteInventarioScreenState extends State<ReporteInventarioScreen> {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text(
-                    'BN24py - Gestión e Inventario',
+                    '${PersonalizacionService.instance.nombreComercio} - Gestión e Inventario',
                     style: pw.TextStyle(
                       fontSize: 18,
                       fontWeight: pw.FontWeight.bold,

@@ -155,7 +155,7 @@ class _MainLayoutState extends State<MainLayout> {
   final Map<String, IconData> _iconos = {
     'Dashboard': Icons.dashboard,
     'Ventas': Icons.receipt,
-    'Pedidos': Icons.assignment, 
+    'Pedidos/Agenda': Icons.assignment, 
     'Inventario': Icons.inventory,
     'Reportes': Icons.bar_chart,
     'Finanzas': Icons.account_balance_wallet,
@@ -419,11 +419,24 @@ class _DashboardContentState extends State<DashboardContent> {
   int _totalProductos = 0;
   int _stockBajo = 0;
   bool _cargando = true;
+  
+  bool _esServicio = false; // <-- AGREGADO
 
   @override
   void initState() {
     super.initState();
+    _cargarPreferencias(); // <-- AGREGADO
     _cargarEstadisticas();
+  }
+
+  // <-- AGREGADO ESTE MÉTODO
+  Future<void> _cargarPreferencias() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _esServicio = prefs.getString('tipo_negocio') == 'Servicios';
+      });
+    }
   }
 
   Future<void> _cargarEstadisticas() async {
@@ -696,7 +709,7 @@ static const List<String> _frases = [
     'El camino del emprendimiento es tuyo y de nadie más.',
   ];
 
-Widget _cardPedidos() {
+  Widget _cardPedidos() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -706,11 +719,14 @@ Widget _cardPedidos() {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.assignment, color: Color(0xFF1E88E5), size: 20),
-              SizedBox(width: 8),
-              Text('Pedidos activos', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A2744))),
+              Icon(_esServicio ? Icons.calendar_month : Icons.assignment, color: const Color(0xFF1E88E5), size: 20),
+              const SizedBox(width: 8),
+              Text(
+                _esServicio ? 'Agendamientos activos' : 'Pedidos activos', 
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A2744))
+              ),
             ],
           ),
           const Divider(height: 16),
@@ -718,27 +734,35 @@ Widget _cardPedidos() {
             stream: _db.getPedidos(),
             builder: (context, snap) {
               if (!snap.hasData || snap.data!.isEmpty) {
-                return const Text('Sin pedidos pendientes', style: TextStyle(color: Colors.grey, fontSize: 13));
+                return Text(_esServicio ? 'Sin agendamientos' : 'Sin pedidos pendientes', style: const TextStyle(color: Colors.grey, fontSize: 13));
               }
               final pedidos = snap.data!
                   .where((p) => p.estado != 'entregado')
                   .take(3)
                   .toList();
               if (pedidos.isEmpty) {
-                return const Text('Sin pedidos pendientes', style: TextStyle(color: Colors.grey, fontSize: 13));
+                return Text(_esServicio ? 'Sin agendamientos' : 'Sin pedidos pendientes', style: const TextStyle(color: Colors.grey, fontSize: 13));
               }
               return Column(
                 children: pedidos.map((p) {
                   final fecha = p.fechaEntrega;
                   final vencido = fecha.isBefore(DateTime.now());
                   final estado = p.estado;
+                  
                   Color colorEstado;
                   String textoEstado;
-                  switch (estado) {
-                    case 'en_proceso': colorEstado = Colors.blue; textoEstado = 'En proceso'; break;
-                    case 'listo': colorEstado = Colors.green; textoEstado = 'Listo'; break;
-                    default: colorEstado = Colors.orange; textoEstado = 'Pendiente';
+                  
+                  if (_esServicio) {
+                    colorEstado = estado == 'entregado' ? Colors.grey : Colors.orange;
+                    textoEstado = estado == 'entregado' ? 'Realizado' : 'A confirmar';
+                  } else {
+                    switch (estado) {
+                      case 'en_proceso': colorEstado = Colors.blue; textoEstado = 'En proceso'; break;
+                      case 'listo': colorEstado = Colors.green; textoEstado = 'Listo'; break;
+                      default: colorEstado = Colors.orange; textoEstado = 'Pendiente';
+                    }
                   }
+
                   return GestureDetector(
                     onTap: () {
                     showModalBottomSheet(
@@ -759,7 +783,15 @@ Widget _cardPedidos() {
                             children: [
                               Text(p.clienteNombre, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A2744))),
                               const SizedBox(height: 4),
-                              Text('Entrega: ${fecha.day}/${fecha.month}/${fecha.year}', style: const TextStyle(color: Colors.grey)),
+                              Text(
+                                _esServicio 
+                                  ? 'Fecha: ${fecha.day}/${fecha.month}/${fecha.year}${p.hora != null ? ' - ${p.hora}' : ''}'
+                                  : 'Entrega: ${fecha.day}/${fecha.month}/${fecha.year}', 
+                                style: const TextStyle(color: Colors.grey)
+                              ),
+                              if (_esServicio && p.motivo != null && p.motivo!.isNotEmpty)
+                                Text('Motivo: ${p.motivo}', style: const TextStyle(color: Colors.grey)),
+                                
                               const SizedBox(height: 4),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -771,12 +803,17 @@ Widget _cardPedidos() {
                               const SizedBox(height: 8),
                               Wrap(
                                 spacing: 8,
-                                children: [
-                                  _chipEstado(p.id, 'pendiente', 'Pendiente', Colors.orange, estado),
-                                  _chipEstado(p.id, 'en_proceso', 'En proceso', Colors.blue, estado),
-                                  _chipEstado(p.id, 'listo', 'Listo', Colors.green, estado),
-                                  _chipEstadoEntregado(p.id, context),
-                                ],
+                                children: _esServicio 
+                                  ? [
+                                      _chipEstado(p.id, 'pendiente', 'A confirmar', Colors.orange, estado),
+                                      _chipEstadoEntregado(p.id, context),
+                                    ]
+                                  : [
+                                      _chipEstado(p.id, 'pendiente', 'Pendiente', Colors.orange, estado),
+                                      _chipEstado(p.id, 'en_proceso', 'En proceso', Colors.blue, estado),
+                                      _chipEstado(p.id, 'listo', 'Listo', Colors.green, estado),
+                                      _chipEstadoEntregado(p.id, context),
+                                    ],
                               ),
                             ],
                           ),
@@ -804,8 +841,12 @@ Widget _cardPedidos() {
                               ],
                             ),
                           ),
-                          Text('${fecha.day}/${fecha.month}/${fecha.year}',
-                              style: TextStyle(fontSize: 11, color: vencido ? Colors.red : Colors.grey)),
+                          Text(
+                            _esServicio 
+                              ? '${fecha.day}/${fecha.month}${p.hora != null ? ' - ${p.hora}' : ''}'
+                              : '${fecha.day}/${fecha.month}/${fecha.year}',
+                            style: TextStyle(fontSize: 11, color: vencido ? Colors.red : Colors.grey)
+                          ),
                         ],
                       ),
                     ),
@@ -843,8 +884,8 @@ Widget _cardPedidos() {
         final confirmar = await showDialog<bool>(
           context: ctx,
           builder: (context) => AlertDialog(
-            title: const Text('Marcar como entregado'),
-            content: const Text('El pedido se eliminará al marcarlo como entregado. ¿Continuar?'),
+            title: Text(_esServicio ? 'Marcar como realizado' : 'Marcar como entregado'),
+            content: Text('El ${_esServicio ? 'agendamiento' : 'pedido'} se eliminará al marcarlo como ${_esServicio ? 'realizado' : 'entregado'}. ¿Continuar?'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
               ElevatedButton(
@@ -863,10 +904,11 @@ Widget _cardPedidos() {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-        child: const Text('Entregado', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
+        child: Text(_esServicio ? 'Realizado' : 'Entregado', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
       ),
     );
   }
+
   
   Widget _cardFrase() {
     final frase = _frases[DateTime.now().day % _frases.length];

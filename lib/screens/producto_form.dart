@@ -77,13 +77,17 @@ class _ProductoFormState extends State<ProductoForm> {
     await _db.agregarProducto(producto);
 
     if (!_esServicio && diferencia > 0) {
-      await _gastosService.registrarGastoMercaderia(
-        _nombreCtrl.text.trim(),
-        diferencia,
-        double.parse(_precioCompraCtrl.text.trim().replaceAll('.', '')),
-      );
+      final precioCompra = double.parse(_precioCompraCtrl.text.trim().replaceAll('.', ''));
+      await _db.agregarGasto({
+        'fecha': DateTime.now().toIso8601String(),
+        'categoria': 'Mercadería',
+        'descripcion': '${_nombreCtrl.text.trim()} x$diferencia',
+        'monto': diferencia * precioCompra,
+        'automatico': true,
+      });
     }
 
+    if (!mounted) return;
     setState(() => _guardando = false);
     Navigator.pop(context, true);
   }

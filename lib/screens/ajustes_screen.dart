@@ -46,15 +46,39 @@ class _AjustesScreenState extends State<AjustesScreen> {
 
   Future<void> _seleccionarLogo() async {
     final picker = ImagePicker();
-    final XFile? imagen = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    final XFile? imagen = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 512,
+      maxHeight: 512,
+    );
     if (imagen == null) return;
+
+    final archivoOrigen = File(imagen.path);
+    final pesoBytes = await archivoOrigen.length();
+    if (pesoBytes > 3 * 1024 * 1024) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('La imagen es muy pesada, elegí una más liviana (máx. 3 MB)'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     final directorio = await getApplicationDocumentsDirectory();
     final nuevoPath = '${directorio.path}/logo_negocio.png';
-    await File(imagen.path).copy(nuevoPath);
+    await archivoOrigen.copy(nuevoPath);
     await PersonalizacionService.instance.guardarLogoPath(nuevoPath);
 
     if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Logo actualizado'),
+        backgroundColor: Colors.green,
+      ),
+    );
     setState(() {});
   }
 
@@ -76,43 +100,92 @@ class _AjustesScreenState extends State<AjustesScreen> {
     }
   }
 
+void _confirmarRestaurar() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Restaurar valores por defecto'),
+        content: const Text('Esto va a volver el nombre, color y logo a los valores originales de Aura Estándar. ¿Confirmás?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await PersonalizacionService.instance.restaurarValoresPorDefecto();
+              _nombreComercioCtrl.text = PersonalizacionService.instance.nombreComercio;
+              if (mounted) setState(() {});
+            },
+            child: const Text('Restaurar'),
+          ),
+        ],
+      ),
+    );
+  }
+  
   Future<void> _seleccionarColor() async {
     Color colorSeleccionado = PersonalizacionService.instance.colorPrimario;
     final resultado = await showModalBottomSheet<Color>(
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 24),
-            const Text('Seleccionar color principal', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 24),
-            ColorPicker(
-              pickerColor: colorSeleccionado,
-              onColorChanged: (c) => colorSeleccionado = c,
-              enableAlpha: false,
-              labelTypes: const [],
-              pickerAreaHeightPercent: 0.5,
-              pickerAreaBorderRadius: BorderRadius.circular(12),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorSeleccionado,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+              const SizedBox(height: 24),
+              const Text('Seleccionar color principal', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                decoration: BoxDecoration(
+                  color: colorSeleccionado,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                onPressed: () => Navigator.pop(context, colorSeleccionado),
-                child: const Text('APLICAR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                child: Column(
+                  children: [
+                    Icon(Icons.storefront, color: PersonalizacionService.instance.colorTextoPara(colorSeleccionado)),
+                    const SizedBox(height: 6),
+                    Text(
+                      PersonalizacionService.instance.nombreComercio,
+                      style: TextStyle(
+                        color: PersonalizacionService.instance.colorTextoPara(colorSeleccionado),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              ColorPicker(
+                pickerColor: colorSeleccionado,
+                onColorChanged: (c) => setModalState(() => colorSeleccionado = c),
+                enableAlpha: false,
+                labelTypes: const [],
+                pickerAreaHeightPercent: 0.5,
+                pickerAreaBorderRadius: BorderRadius.circular(12),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colorSeleccionado,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => Navigator.pop(context, colorSeleccionado),
+                  child: Text('APLICAR', style: TextStyle(color: PersonalizacionService.instance.colorTextoPara(colorSeleccionado), fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -239,6 +312,22 @@ class _AjustesScreenState extends State<AjustesScreen> {
                 title: const Text('Color principal'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _seleccionarColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _seccion(
+            titulo: 'Restaurar',
+            icono: Icons.restore,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _confirmarRestaurar,
+                  icon: const Icon(Icons.restore),
+                  label: const Text('Restaurar valores por defecto'),
+                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                ),
               ),
             ],
           ),
