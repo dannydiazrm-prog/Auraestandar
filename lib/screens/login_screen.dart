@@ -70,15 +70,6 @@ class _LoginScreenState extends State<LoginScreen> {
       await prefs.setBool('app_activada', true);
 
       if (!mounted) return;
-      
-      // 1. Limpiamos cualquier pantalla que esté "encimada" en el historial (ej: si venís de Términos)
-      if (Navigator.canPop(context)) {
-        Navigator.popUntil(context, (route) => route.isFirst);
-      }
-
-      // 2. Le damos la señal a tu main.dart.
-      // Al hacer esto, main.dart recarga y muestra OnboardingScreen en TIEMPO REAL.
-      // Como main.dart hace el cambio desde la raíz, el usuario NO podrá volver atrás.
       widget.onActivado();
 
    } catch (e) {
