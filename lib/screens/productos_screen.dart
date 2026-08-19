@@ -226,7 +226,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
                 await _db.actualizarStock(p.id, p.stock + cant);
 
                 if (costo > 0) {
-                  await FirebaseFirestore.instance.collection('gastos').add({
+                  await _db.agregarGasto({
                     'descripcion': 'Reposición stock: ${p.nombre} ($cant unidades)',
                     'monto': costo,
                     'categoria': 'Inventario',
@@ -300,7 +300,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
               if (cant <= 0 || cant > p.stock) return;
               final perdida = cant * p.precioCompra;
               await _db.actualizarStock(p.id, p.stock - cant);
-              await FirebaseFirestore.instance.collection('gastos').add({
+              await _db.agregarGasto({
                 'descripcion': 'Baja de stock: ${p.nombre} ($cant unidades) - ${motivoCtrl.text}',
                 'monto': perdida,
                 'categoria': 'Pérdida de inventario',
