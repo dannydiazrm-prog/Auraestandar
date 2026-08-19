@@ -127,7 +127,7 @@ class _MyAppState extends State<MyApp> {
                     home: _terminosAceptados == null || _activada == null || _onboardingCompletado == null
               ? const Scaffold(body: Center(child: CircularProgressIndicator()))
               : _terminosAceptados == false
-                  ? TerminosScreen(siguientePantalla: LoginScreen(onActivado: _marcarActivada))
+                  ? TerminosScreen(onAceptado: () => setState(() => _terminosAceptados = true))
                   : _activada == false
                       ? LoginScreen(onActivado: _marcarActivada)
                       : _onboardingCompletado == false

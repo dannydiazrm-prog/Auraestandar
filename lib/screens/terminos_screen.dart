@@ -4,9 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/personalizacion_service.dart';
 
 class TerminosScreen extends StatefulWidget {
-  final Widget siguientePantalla;
+  final VoidCallback onAceptado;
 
-  const TerminosScreen({super.key, required this.siguientePantalla});
+  const TerminosScreen({super.key, required this.onAceptado});
 
   @override
   State<TerminosScreen> createState() => _TerminosScreenState();
@@ -20,10 +20,7 @@ class _TerminosScreenState extends State<TerminosScreen> {
     await prefs.setBool('terminos_aceptados', true);
     
     if (!mounted) return;
-    
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => widget.siguientePantalla),
-    );
+    widget.onAceptado();
   }
 
   void _rechazar() {
