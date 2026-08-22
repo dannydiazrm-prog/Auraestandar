@@ -38,16 +38,19 @@ jobs:
           flutter-version: '3.38.5'
       - run: flutter pub get
       - run: dart run flutter_launcher_icons
-      
+
       - name: Compilar Windows Release
         run: flutter build windows --release
-      
+
+      - name: Listar archivos compilados (diagnóstico)
+        run: dir build\windows\x64\runner\Release
+
       - name: Instalar NSIS
         run: choco install nsis -y
-        
+
       - name: Crear Instalador con NSIS
         run: '& "${env:ProgramFiles(x86)}\NSIS\makensis.exe" installer.nsi'
-        
+
       - uses: actions/upload-artifact@v4
         with:
           name: AuraEstandar-Instalador-Windows
