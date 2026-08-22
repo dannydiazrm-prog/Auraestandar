@@ -1,4 +1,4 @@
-!define APPNAME "Aura Estándar"
+!define APPNAME "Aura estandar"
 !define COMPANYNAME "JP Labs"
 !define DESCRIPTION "Punto de venta y gestion"
 !define VERSIONMAJOR 1

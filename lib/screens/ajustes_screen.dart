@@ -111,7 +111,7 @@ class _AjustesScreenState extends State<AjustesScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Restaurar valores por defecto'),
-        content: const Text('Esto va a volver el nombre, color y logo a los valores originales de Aura Estándar. ¿Confirmás?'),
+        content: const Text('Esto va a volver el nombre, color y logo a los valores originales de Aura estandar. ¿Confirmás?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -267,7 +267,7 @@ class _AjustesScreenState extends State<AjustesScreen> {
         // Share permite enviar el archivo por WhatsApp, guardarlo en Drive o Descargas
         await Share.shareXFiles(
           [XFile(dbPath)],
-          text: 'Copia de seguridad - Aura Estándar',
+          text: 'Copia de seguridad - Aura estandar',
         );
       } else {
         if (!mounted) return;

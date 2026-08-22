@@ -127,7 +127,7 @@ class _MyAppState extends State<MyApp> {
       animation: PersonalizacionService.instance,
       builder: (context, _) {
         return MaterialApp(
-          title: 'Aura Estándar',
+          title: 'Aura estandar',
           debugShowCheckedModeBanner: false,
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,

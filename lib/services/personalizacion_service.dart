@@ -5,13 +5,13 @@ class PersonalizacionService extends ChangeNotifier {
   static final PersonalizacionService instance = PersonalizacionService._();
   PersonalizacionService._();
 
-  String nombreComercio = 'Aura Estándar';
+  String nombreComercio = 'Aura estandar';
   Color colorPrimario = const Color(0xFF29B6F6);
   String? logoPath;
 
   Future<void> cargar() async {
     final prefs = await SharedPreferences.getInstance();
-    nombreComercio = prefs.getString('nombre_comercio') ?? 'Aura Estándar';
+    nombreComercio = prefs.getString('nombre_comercio') ?? 'Aura estandar';
     final colorGuardado = prefs.getInt('color_primario');
     colorPrimario =
         colorGuardado != null ? Color(colorGuardado) : const Color(0xFF29B6F6);
@@ -50,7 +50,7 @@ class PersonalizacionService extends ChangeNotifier {
   Color get colorTexto => colorTextoPara(colorPrimario);
   
   Future<void> restaurarValoresPorDefecto() async {
-    nombreComercio = 'Aura Estándar';
+    nombreComercio = 'Aura estandar';
     colorPrimario = const Color(0xFF29B6F6);
     logoPath = null;
     final prefs = await SharedPreferences.getInstance();
